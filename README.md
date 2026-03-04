@@ -2,7 +2,7 @@
 
 # frontend , will deploy final on Varcel
 
-##Steps
+## Steps
 ### 1. Git clone repository
 
 ### 2. Enter terminal & install dependancies
