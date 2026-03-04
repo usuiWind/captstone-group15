@@ -6,8 +6,9 @@ const GlobalStyles = () => (
     @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap');
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
-    body { font-family: 'DM Sans', sans-serif; background: white; overflow-x: hidden; }
+    html { scroll-behavior: smooth; width: 100%; }
+    body { font-family: 'DM Sans', sans-serif; background: white; overflow-x: hidden; width: 100%; }
+    #root { width: 100%; }
 
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(28px); }
@@ -36,7 +37,6 @@ const GlobalStyles = () => (
       border: 1px solid rgba(0,0,0,0.07);
       border-radius: 10px;
       flex: 1 1 280px;
-      max-width: 370px;
       position: relative;
       overflow: hidden;
       transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -76,12 +76,13 @@ const GlobalStyles = () => (
       border-radius: 50%;
       font-family: 'DM Sans', sans-serif;
       font-size: 13.5px;
+      color: #1a1a2e;
       cursor: default;
       transition: background 0.15s, color 0.15s;
       position: relative;
       user-select: none;
     }
-    .cal-day.other-month { color: rgba(0,0,0,0.2); }
+    .cal-day.other-month { color: rgba(0,0,0,0.22); }
     .cal-day.today { background: #C8102E !important; color: white !important; font-weight: 700; }
     .cal-day.has-event::after {
       content: '';
@@ -208,7 +209,7 @@ function Navbar() {
       transition: "all 0.35s ease",
     }}>
       <div style={{
-        maxWidth: 1280, margin: "0 auto", padding: "0 2rem",
+        maxWidth: "100%", margin: "0 auto", padding: "0 2rem",
         display: "flex", alignItems: "center", justifyContent: "space-between", height: 68,
       }}>
         <a href="/" style={{ textDecoration: "none" }}>
@@ -286,7 +287,7 @@ function Hero() {
         opacity: 0.65,
       }} />
 
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 2rem", width: "100%", position: "relative", zIndex: 2 }}>
+      <div style={{ maxWidth: "100%", margin: "0 auto", padding: "0 2rem", width: "100%", position: "relative", zIndex: 2 }}>
         <div className="hero-indent" style={{ paddingLeft: "5rem", maxWidth: 760 }}>
 
           <div style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.2rem", ...anim(0.1) }}>
@@ -302,7 +303,7 @@ function Hero() {
           }}>
             Future<br />
             <span style={{ color: "#C8102E" }}>Information</span><br />
-            Technology<br />
+            <span style={{ color: "#C8102E" }}>Technology</span><br />
             Professionals
           </h1>
 
@@ -360,7 +361,7 @@ function WhatWeDo() {
 
   return (
     <section id="about" style={{ background: "#f8f7f5", padding: "6rem 2rem" }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+      <div style={{ maxWidth: "100%", margin: "0 auto" }}>
 
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
@@ -405,7 +406,7 @@ function WhatWeDo() {
 function EventsGallery() {
   return (
     <section id="events" style={{ background: "#03082e", padding: "6rem 0" }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 2rem", marginBottom: "2.5rem" }}>
+      <div style={{ maxWidth: "100%", margin: "0 auto", padding: "0 2rem", marginBottom: "2.5rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "0.7rem" }}>
           <span style={{ width: 32, height: 2.5, background: "#C8102E", display: "block", borderRadius: 2 }} />
           <span className="section-tag">Community</span>
@@ -487,7 +488,7 @@ function CalendarSection() {
 
   return (
     <section id="calendar" style={{ background: "white", padding: "6rem 2rem", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+      <div style={{ maxWidth: "100%", margin: "0 auto" }}>
 
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
@@ -677,7 +678,7 @@ function MembershipCTA() {
         backgroundImage: "repeating-linear-gradient(45deg,white 0,white 1px,transparent 1px,transparent 50%)",
         backgroundSize: "28px 28px",
       }} />
-      <div style={{ maxWidth: 800, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
+      <div style={{ maxWidth: "100%", margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
         <span className="section-tag" style={{ color: "rgba(255,255,255,0.65)", display: "block", marginBottom: "0.9rem" }}>
           Join FITP
         </span>
@@ -716,7 +717,7 @@ function MembershipCTA() {
 function Sponsors() {
   return (
     <section id="sponsorships" style={{ background: "#f8f7f5", padding: "5rem 2rem" }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+      <div style={{ maxWidth: "100%", margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: "3rem" }}>
           <span className="section-tag" style={{ display: "block", marginBottom: "0.5rem" }}>Our Partners</span>
           <h2 className="section-title">Sponsors</h2>
@@ -741,7 +742,7 @@ function Footer() {
   ];
   return (
     <footer style={{ background: "#03082e", color: "white", padding: "3.5rem 2rem", borderTop: "1px solid rgba(200,16,46,0.22)" }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+      <div style={{ maxWidth: "100%", margin: "0 auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "2.5rem", marginBottom: "2.5rem" }}>
           <div>
             <img src="https://static.wixstatic.com/media/8b5d4e_2037e3e1f5684f5a8941d1a13f747017~mv2.png/v1/fill/w_385,h_232,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/BlueRed.png"
