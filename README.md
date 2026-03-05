@@ -1,3 +1,8 @@
+# capstone-group15-frontend-backup
+## Step 1: clone git<br>
+## Step 2: run npm dev<br> 
+## Step 3: access http://localhost:5173/
+<br><br>
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
