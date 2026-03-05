@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import AboutPage from './pages/AboutPage'
 import LeadershipPage from './pages/LeadershipPage'
+import GalleryPage from './pages/GalleryPage'
 import MembershipPage from './pages/MembershipPage'
 import SponsorshipsPage from './pages/SponsorshipsPage'
 import ContactPage from './pages/ContactPage'
@@ -14,6 +15,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/officers" element={<LeadershipPage />} />
+          <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/membership" element={<MembershipPage />} />
           <Route path="/sponsorships" element={<SponsorshipsPage />} />
           <Route path="/contact" element={<ContactPage />} />
