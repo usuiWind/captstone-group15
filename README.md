@@ -30,22 +30,35 @@ backend/
 
 ## 🚀 Quick Start
 
+### Backend
 1. **Install dependencies**
    ```bash
    cd backend
    npm install
    ```
-
 2. **Environment setup**
    ```bash
    cp .env.example .env
    # Add your Stripe keys and other env variables
    ```
-
 3. **Start development server**
    ```bash
    npm run dev
    ```
+
+### Frontend
+1. **Install dependencies**
+   ```bash
+   cd frontend
+   npm install
+   ```
+2. **Start development server**
+   ```bash
+   npm run dev
+   ```
+3. **Access the application**
+   - Frontend: http://localhost:5173/
+   - Backend: http://localhost:3000/
 
 ## 🔐 Authentication
 
@@ -110,11 +123,16 @@ When ready to add a real database:
 
 ## 📦 Dependencies
 
+### Backend
 - **Next.js 14** with App Router
 - **NextAuth.js v5** for authentication
 - **Stripe** for payment processing
 - **Vercel Blob** for file storage
 - **bcryptjs** for password hashing
+
+### Frontend
+- **React** with Vite
+- **TypeScript** support available
 
 ## 🎯 Features
 
