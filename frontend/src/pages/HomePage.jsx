@@ -194,10 +194,16 @@ function Hero() {
     transition: `opacity 0.85s ease ${delay}s, transform 0.85s ease ${delay}s`,
   });
 
+  const animDown = (delay) => ({
+    opacity:    ready ? 1 : 0,
+    transform:  ready ? "translateY(0)" : "translateY(-26px)",
+    transition: `opacity 0.85s ease ${delay}s, transform 0.85s ease ${delay}s`,
+  });
+
   return (
     <section id="home" style={{
       minHeight: "100vh", position: "relative", overflow: "hidden",
-      display: "flex", alignItems: "center",
+      display: "flex", alignItems: "center", justifyContent: "center",
       background: "linear-gradient(152deg, #020619 0%, #04124a 55%, #1b040a 100%)",
     }}>
       {/* Grid texture */}
@@ -206,55 +212,74 @@ function Hero() {
         backgroundImage: "linear-gradient(white 1px,transparent 1px),linear-gradient(90deg,white 1px,transparent 1px)",
         backgroundSize: "64px 64px",
       }} />
-      {/* Diagonal red slab */}
+      {/* Subtle red glow top-right */}
       <div style={{
-        position: "absolute", top: 0, right: 0, width: "42%", height: "100%",
-        background: "linear-gradient(155deg,rgba(200,16,46,0.11) 0%,rgba(200,16,46,0.02) 100%)",
-        clipPath: "polygon(16% 0%,100% 0%,100% 100%,0% 100%)",
+        position: "absolute", top: "-10%", right: "-5%",
+        width: "50%", height: "70%", borderRadius: "50%",
+        background: "radial-gradient(ellipse, rgba(200,16,46,0.08) 0%, transparent 70%)",
+        pointerEvents: "none",
       }} />
-      {/* Vertical accent */}
+      {/* Subtle blue glow bottom-left */}
       <div style={{
-        position: "absolute", left: "7.5%", top: "18%", bottom: "18%", width: 3,
-        background: "linear-gradient(to bottom,transparent,#C8102E 30%,#C8102E 70%,transparent)",
-        opacity: 0.65,
+        position: "absolute", bottom: "-10%", left: "-5%",
+        width: "50%", height: "70%", borderRadius: "50%",
+        background: "radial-gradient(ellipse, rgba(0,48,135,0.12) 0%, transparent 70%)",
+        pointerEvents: "none",
       }} />
 
-      <div style={{ maxWidth: "100%", margin: "0 auto", padding: "0 2rem", width: "100%", position: "relative", zIndex: 2 }}>
-        <div className="hero-indent" style={{ paddingLeft: "5rem", maxWidth: 760 }}>
+      {/* ── Centered content ── */}
+      <div style={{
+        position: "relative", zIndex: 2,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", textAlign: "center",
+        padding: "0 2rem", width: "100%", marginTop: "-5rem",
+      }}>
 
-          <div style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.2rem", ...anim(0.1) }}>
-            <span style={{ width: 28, height: 2.5, background: "#C8102E", display: "block", borderRadius: 2 }} />
-            <span className="section-tag">University of Houston · Sugar Land</span>
-          </div>
-
-          <h1 style={{
-            fontFamily: "'Bebas Neue', sans-serif",
-            fontSize: "clamp(3.8rem, 9.5vw, 8rem)",
-            lineHeight: 0.9, color: "white", letterSpacing: 2, margin: "0 0 1.4rem",
-            ...anim(0.25),
-          }}>
-            Future<br />
-            <span style={{ color: "#C8102E" }}>Information</span><br />
-            <span style={{ color: "#C8102E" }}>Technology</span><br />
-            Professionals
-          </h1>
-
-          <p style={{
-            fontFamily: "'DM Sans', sans-serif", color: "rgba(255,255,255,0.6)",
-            fontSize: "1.05rem", lineHeight: 1.78, maxWidth: 510,
-            marginBottom: "2.2rem", fontWeight: 300, ...anim(0.4),
-          }}>
-            Empowering IT students through career development, mentorship,
-            and a network that opens doors across the technology industry.
-          </p>
-
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", ...anim(0.55) }}>
-            <a href="/membership" className="btn-primary">Become a Member</a>
-            <a href="#about"      className="btn-outline">Learn More</a>
-          </div>
+        {/* Logo */}
+        <div style={{ ...anim(0.05) }}>
+          <img
+            src="https://static.wixstatic.com/media/8b5d4e_2037e3e1f5684f5a8941d1a13f747017~mv2.png/v1/fill/w_385,h_232,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/BlueRed.png"
+            alt="FITP UH"
+            style={{
+              height: "clamp(140px, 22vw, 260px)",
+              objectFit: "contain",
+              marginBottom: "0.1rem",
+              filter: "drop-shadow(0 8px 32px rgba(0,0,0,0.45))",
+            }}
+          />
         </div>
+
+        {/* UH tag */}
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.4rem", ...anim(0.18) }}>
+          <span style={{ width: 28, height: 2, background: "#C8102E", display: "block", borderRadius: 2 }} />
+          <span className="section-tag">University of Houston · Sugar Land</span>
+          <span style={{ width: 28, height: 2, background: "#C8102E", display: "block", borderRadius: 2 }} />
+        </div>
+
+        {/* Title — two lines, big and bold */}
+        <h1 style={{
+          fontFamily: "'Bebas Neue', sans-serif",
+          fontSize: "clamp(2.8rem, 7vw, 6.2rem)",
+          lineHeight: 1.0, letterSpacing: 3,
+          margin: "0 0 1.6rem",
+          ...anim(0.35),
+        }}>
+          <span style={{ color: "white" }}>Future </span>
+          <span style={{ color: "#C8102E" }}>Information</span>
+          <br />
+          <span style={{ color: "#C8102E" }}>Technology </span>
+          <span style={{ color: "white" }}>Professionals</span>
+        </h1>
+
+        {/* Buttons */}
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center", ...animDown(0.55)  }}>
+          <a href="/membership" className="btn-primary">Become a Member</a>
+          <a href="#about"      className="btn-outline">Learn More</a>
+        </div>
+
       </div>
 
+      {/* Scroll indicator */}
       <div style={{
         position: "absolute", bottom: "2rem", left: "50%",
         display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem",
