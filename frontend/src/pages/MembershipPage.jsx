@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Navbar from "../components/Navbar";
 
 // ─── GLOBAL STYLES (same as HomePage + AboutPage) ─────────────────────────────
 const GlobalStyles = () => (
@@ -67,90 +68,6 @@ const GlobalStyles = () => (
   `}</style>
 );
 
-// ─── NAVBAR (identical to HomePage / AboutPage) ───────────────────────────────
-function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 48);
-    window.addEventListener("scroll", fn);
-    return () => window.removeEventListener("scroll", fn);
-  }, []);
-
-  const links = [
-    { label: "Home",         href: "/" },
-    { label: "About",        href: "/about" },
-    { label: "Membership",   href: "/membership" },
-    { label: "Sponsorships", href: "/sponsorships" },
-    { label: "Contact",      href: "/contact" },
-  ];
-
-  return (
-    <nav style={{
-      position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
-      background: scrolled ? "rgba(3,8,46,0.97)" : "transparent",
-      backdropFilter: scrolled ? "blur(14px)" : "none",
-      borderBottom: scrolled ? "1px solid rgba(200,16,46,0.22)" : "none",
-      transition: "all 0.35s ease",
-    }}>
-      <div style={{
-        maxWidth: "100%", margin: "0 auto", padding: "0 2rem",
-        display: "flex", alignItems: "center", justifyContent: "space-between", height: 68,
-      }}>
-        <a href="/" style={{ textDecoration: "none" }}>
-          <img
-            src="https://static.wixstatic.com/media/8b5d4e_2037e3e1f5684f5a8941d1a13f747017~mv2.png/v1/fill/w_385,h_232,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/BlueRed.png"
-            alt="FITP UH"
-            style={{ height: 44, objectFit: "contain" }}
-          />
-        </a>
-
-        <div className="desktop-nav" style={{ display: "flex", alignItems: "center", gap: "2.2rem" }}>
-          {links.map(l => (
-            <a
-              key={l.label}
-              href={l.href}
-              className={`nav-link${l.label === "Membership" ? " active" : ""}`}
-            >
-              {l.label}
-            </a>
-          ))}
-          <a href="/login" style={{
-            fontFamily: "'DM Sans', sans-serif", fontSize: 12.5, letterSpacing: 1.8,
-            textTransform: "uppercase", fontWeight: 700, color: "white",
-            border: "1.5px solid rgba(255,255,255,0.32)", borderRadius: 4,
-            padding: "0.42rem 1rem", textDecoration: "none", transition: "all 0.2s",
-          }}
-            onMouseEnter={e => { e.target.style.background = "#C8102E"; e.target.style.borderColor = "#C8102E"; }}
-            onMouseLeave={e => { e.target.style.background = "transparent"; e.target.style.borderColor = "rgba(255,255,255,0.32)"; }}
-          >Log In</a>
-        </div>
-
-        <button
-          className="hamburger-btn"
-          onClick={() => setMenuOpen(!menuOpen)}
-          style={{ display: "none", background: "none", border: "none", cursor: "pointer", flexDirection: "column", gap: 5, padding: 4 }}
-        >
-          {[0, 1, 2].map(i => (
-            <span key={i} style={{ display: "block", width: 24, height: 2, background: "white", borderRadius: 2 }} />
-          ))}
-        </button>
-      </div>
-
-      {menuOpen && (
-        <div style={{ background: "rgba(3,8,46,0.98)", padding: "1rem 2rem 2rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          {links.map(l => (
-            <a key={l.label} href={l.href} className="nav-link" style={{ fontSize: 16 }} onClick={() => setMenuOpen(false)}>
-              {l.label}
-            </a>
-          ))}
-          <a href="/login" className="btn-primary" style={{ textAlign: "center" }}>Log In</a>
-        </div>
-      )}
-    </nav>
-  );
-}
 
 // ─── HERO — skyline banner photo ──────────────────────────────────────────────
 function Hero() {
