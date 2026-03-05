@@ -311,7 +311,7 @@ export default function LeadershipPage() {
   return (
     <>
       <GlobalStyles />
-      <Navbar active="Leadership" />
+      <Navbar active="Leadership" alwaysSolid />
 
       {/* Page content starts below fixed navbar */}
       <div style={{ paddingTop: 68 }}>
