@@ -1,9 +1,9 @@
-import { NextAuthOptions } from 'next-auth'
+import NextAuth from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { repositories } from './container'
 
-export const authOptions: NextAuthOptions = {
+const authOptions = {
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -11,19 +11,21 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' }
       },
-      async authorize(credentials: { email?: string; password?: string } | undefined) {
-        if (!credentials?.email || !credentials?.password) {
+      async authorize(credentials) {
+        const email = credentials?.email as string | undefined
+        const password = credentials?.password as string | undefined
+        if (!email || !password) {
           return null
         }
 
-        const user = await repositories.user.findByEmail(credentials.email)
-        
+        const user = await repositories.user.findByEmail(email)
+
         if (!user || !user.passwordHash) {
           return null
         }
 
-        const isPasswordValid = await bcrypt.compare(credentials.password, user.passwordHash)
-        
+        const isPasswordValid = await bcrypt.compare(password, user.passwordHash)
+
         if (!isPasswordValid) {
           return null
         }
@@ -38,7 +40,7 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   session: {
-    strategy: 'jwt'
+    strategy: 'jwt' as const
   },
   callbacks: {
     async jwt({ token, user }: { token: any; user?: any }) {
@@ -60,3 +62,8 @@ export const authOptions: NextAuthOptions = {
     error: '/login',
   },
 }
+
+export const { handlers, auth } = NextAuth(authOptions)
+
+/** @deprecated Use auth() from next-auth instead. Kept for getServerSession in existing API routes. */
+export { authOptions }

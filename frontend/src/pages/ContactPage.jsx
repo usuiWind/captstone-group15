@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
+import { postJson } from "../../backend";
 
 // ─── GLOBAL STYLES (same as HomePage / AboutPage / MembershipPage) ────────────
 const GlobalStyles = () => (
@@ -156,6 +157,7 @@ function ContactSection() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [errors, setErrors]     = useState({});
+  const [serverError, setServerError] = useState("");
 
   const validate = () => {
     const e = {};
@@ -172,7 +174,23 @@ function ContactSection() {
     if (Object.keys(e).length > 0) { setErrors(e); return; }
     setErrors({});
     setLoading(true);
-    setTimeout(() => { setLoading(false); setSubmitted(true); }, 1000);
+    setServerError("");
+
+    postJson("/api/contact", {
+      firstName: form.firstName,
+      lastName: form.lastName,
+      email: form.email,
+      message: form.message,
+    })
+      .then(() => {
+        setLoading(false);
+        setSubmitted(true);
+      })
+      .catch((err) => {
+        console.error("Contact submit failed", err);
+        setLoading(false);
+        setServerError(err.message || "Something went wrong. Please try again.");
+      });
   };
 
   const handleChange = (field, value) => {
@@ -413,6 +431,12 @@ function ContactSection() {
                 >
                   {loading ? "Sending…" : "Submit"}
                 </button>
+
+                {serverError && (
+                  <div style={{ marginTop: "0.75rem", fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#C8102E", textAlign: "center" }}>
+                    {serverError}
+                  </div>
+                )}
               </div>
             )}
           </div>

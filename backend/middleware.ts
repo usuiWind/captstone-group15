@@ -1,10 +1,37 @@
 import { NextResponse } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173'
+
+function withCors(res: NextResponse, origin: string | null) {
+  if (origin && (origin === FRONTEND_ORIGIN || FRONTEND_ORIGIN === '*')) {
+    const allowOrigin = FRONTEND_ORIGIN === '*' ? origin : FRONTEND_ORIGIN
+    res.headers.set('Access-Control-Allow-Origin', allowOrigin)
+    res.headers.set('Access-Control-Allow-Credentials', 'true')
+    res.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    res.headers.set('Access-Control-Allow-Headers', 'Content-Type')
+  }
+  return res
+}
+
 export async function middleware(req: any) {
+  const pathname = req.nextUrl.pathname
+  const origin = req.headers.get('origin')
+
+  // CORS preflight for API (SPA on different origin)
+  if (req.method === 'OPTIONS' && pathname.startsWith('/api/')) {
+    const res = NextResponse.next()
+    return withCors(res, origin)
+  }
+
+  // NextAuth API routes: always allow (session, csrf, signin, signout)
+  if (pathname.startsWith('/api/auth')) {
+    const res = NextResponse.next()
+    return withCors(res, origin)
+  }
+
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
   const isAdmin = token?.role === 'ADMIN'
-  const pathname = req.nextUrl.pathname
 
   // Admin routes protection
   if (pathname.startsWith('/admin') && !isAdmin) {
@@ -26,7 +53,7 @@ export async function middleware(req: any) {
     '/api/sponsors'
   ]
 
-  const isPublicRoute = publicRoutes.some(route => 
+  const isPublicRoute = publicRoutes.some(route =>
     pathname === route || pathname.startsWith(route)
   )
 
@@ -35,9 +62,14 @@ export async function middleware(req: any) {
     return NextResponse.next()
   }
 
-  // Public API routes
-  if (pathname.startsWith('/api/staff') || pathname.startsWith('/api/sponsors')) {
-    return NextResponse.next()
+  // Public API routes (add CORS for SPA)
+  if (
+    pathname.startsWith('/api/staff') ||
+    pathname.startsWith('/api/sponsors') ||
+    pathname.startsWith('/api/contact')
+  ) {
+    const res = NextResponse.next()
+    return withCors(res, origin)
   }
 
   // If it's a public route, allow access
@@ -46,7 +78,7 @@ export async function middleware(req: any) {
   }
 
   // Protected routes require authentication
-  if (pathname.startsWith('/dashboard') || 
+  if (pathname.startsWith('/dashboard') ||
       pathname.startsWith('/membership') ||
       pathname.startsWith('/api/')) {
     if (!token) {
