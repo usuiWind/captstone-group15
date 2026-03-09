@@ -53,14 +53,24 @@ export class MembershipService {
       currentPeriodEnd: new Date(invoice.period_end * 1000)
     })
 
-    // Send payment success email
-    const user = await repositories.user.findById(membership.userId)
-    if (user) {
-      await emailService.sendPaymentSuccessEmail(user.email, invoice.amount_paid / 100)
-    }
+    /const updatedMembership = await repositories.membership.update(membership.id, {
+  status: 'ACTIVE',
+  currentPeriodStart: new Date(invoice.period_start * 1000),
+  currentPeriodEnd: new Date(invoice.period_end * 1000)
+})
 
-    return updatedMembership
-  }
+// Send payment success email
+const user = await repositories.user.findById(membership.userId)
+if (user) {
+  await emailService.sendPaymentSuccessEmail(
+    user.email,
+    invoice.amount_paid / 100,
+    updatedMembership.planName,        // pass plan name
+    updatedMembership.currentPeriodEnd // pass expiry date
+  )
+}
+
+return updatedMembership
 
   async handlePaymentFailed(invoice: any): Promise<Membership> {
     const subscriptionId = invoice.subscription as string
