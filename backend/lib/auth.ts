@@ -1,7 +1,7 @@
 import NextAuth from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import bcrypt from 'bcryptjs'
 import { repositories } from './container'
+import { supabaseAnon } from './supabase'
 
 const authOptions = {
   providers: [
@@ -14,21 +14,19 @@ const authOptions = {
       async authorize(credentials) {
         const email = credentials?.email as string | undefined
         const password = credentials?.password as string | undefined
-        if (!email || !password) {
-          return null
-        }
+        if (!email || !password) return null
 
-        const user = await repositories.user.findByEmail(email)
+        // Supabase Auth validates the password — NextAuth owns the session from here.
+        const { data, error } = await supabaseAnon.auth.signInWithPassword({
+          email,
+          password,
+        })
 
-        if (!user || !user.passwordHash) {
-          return null
-        }
+        if (error || !data.user) return null
 
-        const isPasswordValid = await bcrypt.compare(password, user.passwordHash)
-
-        if (!isPasswordValid) {
-          return null
-        }
+        // Fetch the profile to get name and role
+        const user = await repositories.user.findById(data.user.id)
+        if (!user) return null
 
         return {
           id: user.id,

@@ -1,10 +1,10 @@
-import { 
-  IUserRepository, 
-  IMembershipRepository, 
-  IAttendanceRepository, 
-  IStaffRepository, 
-  ISponsorRepository, 
-  IVerificationTokenRepository 
+import {
+  IUserRepository,
+  IMembershipRepository,
+  IAttendanceRepository,
+  IStaffRepository,
+  ISponsorRepository,
+  IVerificationTokenRepository
 } from './interfaces/repositories'
 
 import {
@@ -16,27 +16,36 @@ import {
   verificationTokenRepositoryStub
 } from './repositories/stubs'
 
-// Dependency injection container
-// Swap these imports to change database implementation
-export const repositories = {
-  user: userRepositoryStub as IUserRepository,
-  membership: membershipRepositoryStub as IMembershipRepository,
-  attendance: attendanceRepositoryStub as IAttendanceRepository,
-  staff: staffRepositoryStub as IStaffRepository,
-  sponsor: sponsorRepositoryStub as ISponsorRepository,
-  verificationToken: verificationTokenRepositoryStub as IVerificationTokenRepository,
+// Swap to Supabase repositories when SUPABASE_URL is configured.
+// Staff and sponsor repositories stay as stubs (data is hardcoded in the frontend).
+function buildRepositories() {
+  if (process.env.SUPABASE_URL) {
+    const {
+      userRepositorySupabase,
+      membershipRepositorySupabase,
+      attendanceRepositorySupabase,
+      verificationTokenRepositorySupabase,
+    } = require('./repositories/supabase')
+
+    return {
+      user: userRepositorySupabase as IUserRepository,
+      membership: membershipRepositorySupabase as IMembershipRepository,
+      attendance: attendanceRepositorySupabase as IAttendanceRepository,
+      staff: staffRepositoryStub as IStaffRepository,
+      sponsor: sponsorRepositoryStub as ISponsorRepository,
+      verificationToken: verificationTokenRepositorySupabase as IVerificationTokenRepository,
+    }
+  }
+
+  // Default: in-memory stubs (no database needed for local dev)
+  return {
+    user: userRepositoryStub as IUserRepository,
+    membership: membershipRepositoryStub as IMembershipRepository,
+    attendance: attendanceRepositoryStub as IAttendanceRepository,
+    staff: staffRepositoryStub as IStaffRepository,
+    sponsor: sponsorRepositoryStub as ISponsorRepository,
+    verificationToken: verificationTokenRepositoryStub as IVerificationTokenRepository,
+  }
 }
 
-// Example of how to swap to a real database later:
-// import { userRepositoryPostgres } from './repositories/postgres/userRepository'
-// import { membershipRepositoryPostgres } from './repositories/postgres/membershipRepository'
-// ... etc
-
-// export const repositories = {
-//   user: userRepositoryPostgres,
-//   membership: membershipRepositoryPostgres,
-//   attendance: attendanceRepositoryPostgres,
-//   staff: staffRepositoryPostgres,
-//   sponsor: sponsorRepositoryPostgres,
-//   verificationToken: verificationTokenRepositoryPostgres,
-// }
+export const repositories = buildRepositories()

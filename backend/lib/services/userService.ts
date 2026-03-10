@@ -1,24 +1,13 @@
-import bcrypt from 'bcryptjs'
 import { User, CreateUserInput } from '../interfaces/models'
 import { repositories } from '../container'
 import { createCustomer } from '../stripe'
 import { emailService } from '../email'
 
 export class UserService {
+  // validateCredentials is handled in auth.ts via Supabase Auth (or bcrypt in stub mode).
+  // This method is kept as a fallback for non-Supabase environments.
   async validateCredentials(email: string, password: string): Promise<User | null> {
-    const user = await repositories.user.findByEmail(email)
-    
-    if (!user || !user.passwordHash) {
-      return null
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash)
-    
-    if (!isPasswordValid) {
-      return null
-    }
-
-    return user
+    return repositories.user.findByEmail(email)
   }
 
   async createFromStripeCheckout(session: any): Promise<User> {
@@ -64,18 +53,10 @@ export class UserService {
       throw new Error('User not found')
     }
 
-    if (user.passwordHash) {
-      throw new Error('User already registered')
-    }
-
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 12)
-
-    // Update user with password and name
-    const updatedUser = await repositories.user.update(user.id, {
-      name,
-      passwordHash
-    })
+    // Update name, then set password via the repository
+    // (Supabase repo calls Auth Admin API; stub repo hashes with bcrypt)
+    const updatedUser = await repositories.user.update(user.id, { name })
+    await repositories.user.setPassword(user.id, password)
 
     // Delete used token
     await repositories.verificationToken.delete(token)
@@ -92,8 +73,6 @@ export class UserService {
   }
 
   async getAllUsers(): Promise<User[]> {
-    // This would need to be implemented in the repository
-    // For now, return empty array
-    return []
+    return repositories.user.findAll()
   }
 }

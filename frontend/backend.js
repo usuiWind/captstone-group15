@@ -1,29 +1,29 @@
-// Simple frontend → backend API helper
-// Uses Vite env var when available, otherwise defaults to local Next dev server.
+// Frontend → backend API helper.
+//
+// In development: VITE_API_BASE_URL is left unset, so all /api/* requests go
+// through the Vite dev proxy to http://localhost:3000 (same origin → cookies work).
+//
+// In production: set VITE_API_BASE_URL to your deployed backend URL, e.g.
+//   VITE_API_BASE_URL=https://your-backend.vercel.app
 
 export const API_BASE_URL =
-  (typeof import.meta !== 'undefined' &&
-    import.meta.env &&
-    import.meta.env.VITE_API_BASE_URL) ||
-  'http://localhost:3000';
+  import.meta.env?.VITE_API_BASE_URL ?? ''
 
 export function backendUrl(path = '/') {
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  return `${API_BASE_URL}${cleanPath}`;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`
+  return `${API_BASE_URL}${cleanPath}`
 }
 
 export async function getJson(path) {
   const res = await fetch(backendUrl(path), {
     method: 'GET',
     credentials: 'include',
-  });
-
-  const data = await res.json().catch(() => null);
+  })
+  const data = await res.json().catch(() => null)
   if (!res.ok) {
-    const message = data?.error || data?.message || 'Request failed';
-    throw new Error(message);
+    throw new Error(data?.error || data?.message || 'Request failed')
   }
-  return data;
+  return data
 }
 
 export async function postJson(path, body) {
@@ -32,29 +32,25 @@ export async function postJson(path, body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     credentials: 'include',
-  });
-
-  const data = await res.json().catch(() => null);
+  })
+  const data = await res.json().catch(() => null)
   if (!res.ok) {
-    const message = data?.error || data?.message || 'Request failed';
-    throw new Error(message);
+    throw new Error(data?.error || data?.message || 'Request failed')
   }
-  return data;
+  return data
 }
 
-/** POST with application/x-www-form-urlencoded (e.g. NextAuth credentials). */
+/** POST with application/x-www-form-urlencoded (NextAuth credentials sign-in). */
 export async function postForm(path, params) {
-  const body = new URLSearchParams(params).toString();
   const res = await fetch(backendUrl(path), {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
+    body: new URLSearchParams(params).toString(),
     credentials: 'include',
-  });
-  const data = await res.json().catch(() => null);
+  })
+  const data = await res.json().catch(() => null)
   if (!res.ok) {
-    const message = data?.error || data?.message || 'Request failed';
-    throw new Error(message);
+    throw new Error(data?.error || data?.message || 'Request failed')
   }
-  return data;
+  return data
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { register } from "../api/services/authService";
 
@@ -27,7 +27,10 @@ const GlobalStyles = () => (
 const PASSWORD_HELP = "At least 8 characters, with uppercase, lowercase, number, and special character (@$!%*?&).";
 
 export default function RegisterPage() {
-  const [token, setToken] = useState("");
+  const [searchParams] = useSearchParams();
+  // Token is pre-filled from the email link (/register?token=...) or entered manually
+  const [token, setToken] = useState(searchParams.get("token") ?? "");
+  const tokenFromUrl = !!searchParams.get("token");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -62,21 +65,26 @@ export default function RegisterPage() {
           <div style={{ background: "white", borderRadius: 12, boxShadow: "0 8px 40px rgba(0,0,0,0.08)", border: "1px solid rgba(0,0,0,0.07)", padding: "2.5rem" }}>
             <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2rem", letterSpacing: 2, color: "#03082e", marginBottom: "0.5rem" }}>Register</h1>
             <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#666", marginBottom: "1.5rem" }}>
-              Have an invite token? Enter it below with your name and password to create your account.
+              {tokenFromUrl
+                ? "Your invite link is ready. Set your name and password to complete your account."
+                : "Have an invite token? Enter it below with your name and password to create your account."}
             </p>
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              <div>
-                <label className="form-label">Invite token</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  autoComplete="off"
-                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                  required
-                />
-              </div>
+              {/* Hide the token field when it came from the URL — user doesn't need to see it */}
+              {!tokenFromUrl && (
+                <div>
+                  <label className="form-label">Invite token</label>
+                  <input
+                    className="form-input"
+                    type="text"
+                    autoComplete="off"
+                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
               <div>
                 <label className="form-label">Full name</label>
                 <input

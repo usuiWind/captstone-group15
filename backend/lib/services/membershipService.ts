@@ -17,8 +17,8 @@ export class MembershipService {
     }
 
     // Get subscription details from Stripe
-    const { stripe } = await import('../stripe')
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+    const { stripe: getStripe } = await import('../stripe')
+    const subscription = await getStripe().subscriptions.retrieve(subscriptionId)
     
     const planName = subscription.items.data[0]?.price?.nickname || 'Unknown Plan'
     const currentPeriodStart = new Date(subscription.current_period_start * 1000)
