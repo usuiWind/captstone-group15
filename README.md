@@ -63,34 +63,58 @@ npm install
 
 ### 2. Environment Configuration
 
+#### Generate Required Secrets
+
+**1. NextAuth Secret (Required)**
+This is used to encrypt JWT tokens and session cookies. Generate a secure random string:
+
+```bash
+# Option 1: Using OpenSSL (if available)
+openssl rand -base64 32
+
+# Option 2: Using Node.js
+cd backend && node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+# Option 3: Using PowerShell
+[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Max 256 } | ForEach-Object { [byte]$_ }))
+```
+
+Copy the generated string for `NEXTAUTH_SECRET`.
+
+**2. Stripe Keys (Required for payments)**
+1. Create account at https://stripe.com
+2. Get test keys from https://dashboard.stripe.com/apikeys
+3. Create products and prices at https://dashboard.stripe.com/products
+4. Set up webhook endpoint and get webhook secret
+
 #### Backend Environment Setup
 ```bash
 cd backend
 cp .env.example .env
 ```
 
-Configure the following environment variables in `.env`:
+Configure `backend/.env`:
 
 ```env
-# NextAuth Configuration
-NEXTAUTH_SECRET=your-secret-key-here
+# NextAuth (Required)
+NEXTAUTH_SECRET=paste-generated-secret-here
 NEXTAUTH_URL=http://localhost:3000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-# Stripe Configuration (Required)
+# Stripe (Required for payments)
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_PRICE_ID_MONTHLY=price_...
 STRIPE_PRICE_ID_ANNUAL=price_...
 
-# File Storage (Vercel Blob)
-BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
+# File Storage (Optional)
+BLOB_READ_WRITE_TOKEN=
 
-# Optional: Database (when ready)
-# DATABASE_URL=postgresql://...
+# Database (Optional - add later)
+# DATABASE_URL=
 
-# Optional: Email Service
-# EMAIL_API_KEY=your-email-api-key
+# Email (Optional - add later)
+# EMAIL_API_KEY=
 ```
 
 #### Frontend Environment Setup
