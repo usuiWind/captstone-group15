@@ -11,6 +11,7 @@ export interface IUserRepository {
 }
 
 export interface IMembershipRepository {
+  findAll(): Promise<Membership[]>
   findByUserId(userId: string): Promise<Membership | null>
   findByStripeCustomerId(id: string): Promise<Membership | null>
   findByStripeSubscriptionId(id: string): Promise<Membership | null>

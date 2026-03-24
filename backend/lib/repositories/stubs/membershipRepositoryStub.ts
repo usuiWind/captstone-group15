@@ -4,6 +4,10 @@ import { IMembershipRepository } from '../../interfaces/repositories'
 const memberships = new Map<string, Membership>()
 
 export const membershipRepositoryStub: IMembershipRepository = {
+  findAll: async (): Promise<Membership[]> => {
+    return [...memberships.values()]
+  },
+
   findByUserId: async (userId: string): Promise<Membership | null> => {
     return [...memberships.values()].find(m => m.userId === userId) ?? null
   },

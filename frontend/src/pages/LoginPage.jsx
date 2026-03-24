@@ -32,7 +32,7 @@ export default function LoginPage() {
   const { signIn, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const from = searchParams.get("from") || searchParams.get("callbackUrl") || "/";
+  const from = searchParams.get("from") || searchParams.get("callbackUrl") || "/dashboard";
 
   if (isAuthenticated) {
     navigate(from, { replace: true });
