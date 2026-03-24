@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
+import { getJson } from "../../backend";
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
 const GlobalStyles = () => (
@@ -164,12 +165,43 @@ const PHOTOS = [
   "https://static.wixstatic.com/media/dc9d24_33635368592a4c0797b35b2e482724c4~mv2.jpg/v1/fit/w_480,h_640,q_90,enc_avif,quality_auto/dc9d24_33635368592a4c0797b35b2e482724c4~mv2.jpg",
 ];
 
-const SPONSORS = [
+const STATIC_SPONSORS = [
   { name: "Amazon Web Services", logo: "https://static.wixstatic.com/media/dc9d24_499ee539fb6f49a8818493644a057b6f~mv2.png/v1/fill/w_190,h_135,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Amazon_Web_Services-Logo_wine.png" },
   { name: "Shell",               logo: "https://static.wixstatic.com/media/8b5d4e_ea710734f75a49f1b6c531d6e44a01b7~mv2.png/v1/fill/w_149,h_118,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Shell-Logo-1971.png" },
   { name: "Sponsor",             logo: "https://static.wixstatic.com/media/24c087_23fa2f79893a4aeca376f779abed7bb0~mv2.jpg/v1/fill/w_207,h_157,al_c,q_80,usm_0.66_1.00_0.01,enc_avif,quality_auto/og-share.jpg" },
   { name: "FITP Partner",        logo: "https://static.wixstatic.com/media/dc9d24_60670651d0a441a3b6dfa5c10edaacc6~mv2.png/v1/fill/w_190,h_144,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Untitled%20design.png" },
 ];
+
+const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
+
+function mapSponsorsFromApi(data) {
+  if (!data || typeof data !== "object") return null;
+
+  const items = [];
+
+  TIER_ORDER.forEach((tier) => {
+    const list = data[tier];
+    if (Array.isArray(list)) {
+      list
+        .slice()
+        .sort((a, b) => {
+          const aOrder = typeof a.order === "number" ? a.order : 0;
+          const bOrder = typeof b.order === "number" ? b.order : 0;
+          return aOrder - bOrder;
+        })
+        .forEach((s) => {
+          if (s && s.logoUrl) {
+            items.push({
+              name: s.name,
+              logo: s.logoUrl,
+            });
+          }
+        });
+    }
+  });
+
+  return items.length > 0 ? items : null;
+}
 
 // Placeholder events — swap with real CMS/API data later
 const EVENTS = [
@@ -672,6 +704,30 @@ function MembershipCTA() {
 
 // ─── SPONSORS ─────────────────────────────────────────────────────────────────
 function Sponsors() {
+  const [sponsors, setSponsors] = useState(STATIC_SPONSORS);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getJson("/api/sponsors")
+      .then((res) => {
+        if (cancelled) return;
+        if (res && res.success && res.data) {
+          const mapped = mapSponsorsFromApi(res.data);
+          if (mapped) {
+            setSponsors(mapped);
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load sponsors from backend", err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <section id="sponsorships" style={{ background: "#f8f7f5", padding: "5rem 2rem" }}>
       <div style={{ maxWidth: "100%", margin: "0 auto" }}>
@@ -680,7 +736,7 @@ function Sponsors() {
           <h2 className="section-title">Sponsors</h2>
         </div>
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", flexWrap: "wrap", gap: "3.5rem" }}>
-          {SPONSORS.map((s, i) => (
+          {sponsors.map((s, i) => (
             <div key={i} className="sponsor-logo" style={{ width: 155, height: 80, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <img src={s.logo} alt={s.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
             </div>

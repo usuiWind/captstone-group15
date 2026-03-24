@@ -1,9 +1,9 @@
-import { NextAuthOptions } from 'next-auth'
+import NextAuth from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import bcrypt from 'bcryptjs'
 import { repositories } from './container'
+import { supabaseAnon } from './supabase'
 
-export const authOptions: NextAuthOptions = {
+const authOptions = {
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -11,22 +11,22 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' }
       },
-      async authorize(credentials: { email?: string; password?: string } | undefined) {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
+      async authorize(credentials) {
+        const email = credentials?.email as string | undefined
+        const password = credentials?.password as string | undefined
+        if (!email || !password) return null
 
-        const user = await repositories.user.findByEmail(credentials.email)
-        
-        if (!user || !user.passwordHash) {
-          return null
-        }
+        // Supabase Auth validates the password — NextAuth owns the session from here.
+        const { data, error } = await supabaseAnon.auth.signInWithPassword({
+          email,
+          password,
+        })
 
-        const isPasswordValid = await bcrypt.compare(credentials.password, user.passwordHash)
-        
-        if (!isPasswordValid) {
-          return null
-        }
+        if (error || !data.user) return null
+
+        // Fetch the profile to get name and role
+        const user = await repositories.user.findById(data.user.id)
+        if (!user) return null
 
         return {
           id: user.id,
@@ -38,7 +38,7 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   session: {
-    strategy: 'jwt'
+    strategy: 'jwt' as const
   },
   callbacks: {
     async jwt({ token, user }: { token: any; user?: any }) {
@@ -60,3 +60,8 @@ export const authOptions: NextAuthOptions = {
     error: '/login',
   },
 }
+
+export const { handlers, auth } = NextAuth(authOptions)
+
+/** @deprecated Use auth() from next-auth instead. Kept for getServerSession in existing API routes. */
+export { authOptions }

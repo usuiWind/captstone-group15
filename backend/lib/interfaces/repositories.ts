@@ -3,8 +3,10 @@ import { User, Membership, Attendance, StaffMember, Sponsor, VerificationToken, 
 export interface IUserRepository {
   findByEmail(email: string): Promise<User | null>
   findById(id: string): Promise<User | null>
+  findAll(): Promise<User[]>
   create(data: CreateUserInput): Promise<User>
   update(id: string, data: Partial<User>): Promise<User>
+  setPassword(id: string, plainPassword: string): Promise<void>
   delete(id: string): Promise<void>
 }
 
