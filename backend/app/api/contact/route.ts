@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { generalRateLimit, getClientIdentifier } from '../../../lib/rateLimit'
 
 export async function POST(request: NextRequest) {
+  const identifier = getClientIdentifier(request)
+  const rl = generalRateLimit(identifier)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, error: 'Too many requests. Please try again later.' },
+      { status: 429 }
+    )
+  }
+
   try {
     const body = await request.json().catch(() => ({}))
     const { firstName, lastName, email, message } = body as {

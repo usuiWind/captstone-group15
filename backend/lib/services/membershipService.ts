@@ -159,8 +159,10 @@ return updatedMembership
   }
 
   async getAllMemberships(status?: string): Promise<Membership[]> {
-    // This would need to be implemented in the repository
-    // For now, return empty array
-    return []
+    const all = await repositories.membership.findAll()
+    if (status) {
+      return all.filter(m => m.status === status)
+    }
+    return all
   }
 }

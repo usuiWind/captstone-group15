@@ -1,5 +1,11 @@
-// Simple in-memory rate limiter for development
-// In production, use Redis or a proper rate limiting solution
+// Simple in-memory rate limiter for development.
+//
+// TODO (SECURITY): This store is process-local. On Vercel (serverless), each
+// invocation may run in a separate process, so this limiter provides NO
+// protection in production. Before public launch, replace with a shared store:
+//   - Recommended: @upstash/ratelimit + @upstash/redis (free tier, Vercel integration)
+//   - Alternative: Vercel KV (same underlying Redis, simpler setup)
+// See: https://upstash.com/docs/redis/sdks/ratelimit/overview
 
 interface RateLimitEntry {
   count: number

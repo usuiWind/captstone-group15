@@ -36,6 +36,15 @@ const SELECT = `
 `
 
 export const membershipRepositorySupabase: IMembershipRepository = {
+  findAll: async (): Promise<Membership[]> => {
+    const { data, error } = await supabaseAdmin
+      .from('memberships')
+      .select(SELECT)
+      .order('created_at', { ascending: false })
+    if (error || !data) return []
+    return data.map(mapRow)
+  },
+
   findByUserId: async (userId: string): Promise<Membership | null> => {
     const { data, error } = await supabaseAdmin
       .from('memberships')

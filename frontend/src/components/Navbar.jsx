@@ -198,13 +198,18 @@ export default function Navbar({ active = "", alwaysSolid = false }) {
               )
             ))}
 
-            {/* Auth: user + Log out, or Log In / Register */}
+            {/* Auth: dashboard/admin links + Log out, or Log In / Register */}
             {!authLoading && (
               isAuthenticated && user ? (
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                  <span className="nav-link" style={{ fontSize: 11, opacity: 0.9 }}>
-                    {user.name || user.email}
-                  </span>
+                  <Link to="/dashboard" className="nav-link" style={{ fontSize: 11 }}>
+                    Dashboard
+                  </Link>
+                  {user.role === "ADMIN" && (
+                    <Link to="/admin" className="nav-link" style={{ fontSize: 11 }}>
+                      Admin
+                    </Link>
+                  )}
                   <button
                     type="button"
                     className="btn-login"
@@ -282,7 +287,14 @@ export default function Navbar({ active = "", alwaysSolid = false }) {
             {!authLoading && (
               isAuthenticated && user ? (
                 <>
-                  <span className="nav-link" style={{ fontSize: 14 }}>{user.name || user.email}</span>
+                  <Link to="/dashboard" className="nav-link" style={{ fontSize: 14 }} onClick={() => setMenuOpen(false)}>
+                    Dashboard
+                  </Link>
+                  {user.role === "ADMIN" && (
+                    <Link to="/admin" className="nav-link" style={{ fontSize: 14 }} onClick={() => setMenuOpen(false)}>
+                      Admin Panel
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={handleSignOut}
