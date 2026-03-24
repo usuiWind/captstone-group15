@@ -6,6 +6,7 @@ import GalleryPage from './pages/GalleryPage'
 import MembershipPage from './pages/MembershipPage'
 import SponsorshipsPage from './pages/SponsorshipsPage'
 import ContactPage from './pages/ContactPage'
+import LoginPage from './pages/LoginPage'
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/membership" element={<MembershipPage />} />
           <Route path="/sponsorships" element={<SponsorshipsPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/login" element={<LoginPage />} />
         </Routes>
       </BrowserRouter>
     </div>
