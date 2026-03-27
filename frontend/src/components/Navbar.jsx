@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 // ─── SHARED NAVBAR ────────────────────────────────────────────────────────────
 // Import this into every page and pass the `active` prop:
@@ -9,16 +11,26 @@ import { useState, useEffect } from "react";
 //   "Home" | "About" | "Leadership" | "Gallery" | "Membership" | "Sponsorships" | "Contact"
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function Navbar({ active = "" }) {
+export default function Navbar({ active = "", alwaysSolid = false }) {
   const [scrolled,  setScrolled]  = useState(false);
   const [menuOpen,  setMenuOpen]  = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const { user, isAuthenticated, loading: authLoading, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = () => {
+    setMenuOpen(false);
+    signOut();
+    navigate("/");
+  };
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 48);
     window.addEventListener("scroll", fn);
     return () => window.removeEventListener("scroll", fn);
   }, []);
+
+  const showSolid = alwaysSolid || scrolled;
 
   // "About" top-link is highlighted whenever user is on About, Leadership, or Gallery
   const aboutActive = ["About", "Leadership", "Gallery"].includes(active);
@@ -94,9 +106,9 @@ export default function Navbar({ active = "" }) {
 
       <nav style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
-        background: scrolled ? "rgba(3,8,46,0.97)" : "transparent",
-        backdropFilter: scrolled ? "blur(14px)" : "none",
-        borderBottom: scrolled ? "1px solid rgba(200,16,46,0.22)" : "none",
+        background: showSolid ? "rgba(3,8,46,0.97)" : "transparent",
+        backdropFilter: showSolid ? "blur(14px)" : "none",
+        borderBottom: showSolid ? "1px solid rgba(200,16,46,0.22)" : "none",
         transition: "all 0.35s ease",
       }}>
         <div style={{
@@ -186,15 +198,47 @@ export default function Navbar({ active = "" }) {
               )
             ))}
 
-            {/* Log In */}
-            <a href="/login" className="btn-login" style={{
-              background: "transparent",
-              border: "1.5px solid rgba(255,255,255,0.32)",
-              borderRadius: 4, padding: "0.42rem 1rem",
-              textDecoration: "none",
-            }}>
-              Log In
-            </a>
+            {/* Auth: dashboard/admin links + Log out, or Log In / Register */}
+            {!authLoading && (
+              isAuthenticated && user ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                  <Link to="/dashboard" className="nav-link" style={{ fontSize: 11 }}>
+                    Dashboard
+                  </Link>
+                  {user.role === "ADMIN" && (
+                    <Link to="/admin" className="nav-link" style={{ fontSize: 11 }}>
+                      Admin
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-login"
+                    onClick={handleSignOut}
+                    style={{ background: "transparent", border: "1.5px solid rgba(255,255,255,0.32)", borderRadius: 4, padding: "0.42rem 1rem", cursor: "pointer" }}
+                  >
+                    Log out
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <Link to="/login" className="btn-login" style={{
+                    background: "transparent",
+                    border: "1.5px solid rgba(255,255,255,0.32)",
+                    borderRadius: 4, padding: "0.42rem 1rem",
+                    textDecoration: "none",
+                  }}>
+                    Log In
+                  </Link>
+                  <Link to="/register" className="btn-login" style={{
+                    background: "#C8102E", borderColor: "#C8102E",
+                    borderRadius: 4, padding: "0.42rem 1rem",
+                    textDecoration: "none",
+                  }}>
+                    Register
+                  </Link>
+                </>
+              )
+            )}
           </div>
 
           {/* Hamburger */}
@@ -240,14 +284,52 @@ export default function Navbar({ active = "" }) {
                 )}
               </div>
             ))}
-            <a href="/login" style={{
-              background: "#C8102E", color: "white",
-              padding: "0.9rem 2.4rem", borderRadius: 5,
-              fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
-              fontSize: 13, letterSpacing: 2, textTransform: "uppercase",
-              textDecoration: "none", textAlign: "center",
-              boxShadow: "0 8px 28px rgba(200,16,46,0.38)",
-            }}>Log In</a>
+            {!authLoading && (
+              isAuthenticated && user ? (
+                <>
+                  <Link to="/dashboard" className="nav-link" style={{ fontSize: 14 }} onClick={() => setMenuOpen(false)}>
+                    Dashboard
+                  </Link>
+                  {user.role === "ADMIN" && (
+                    <Link to="/admin" className="nav-link" style={{ fontSize: 14 }} onClick={() => setMenuOpen(false)}>
+                      Admin Panel
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    style={{
+                      background: "#C8102E", color: "white",
+                      padding: "0.9rem 2.4rem", borderRadius: 5,
+                      fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
+                      fontSize: 13, letterSpacing: 2, textTransform: "uppercase",
+                      border: "none", cursor: "pointer", width: "100%",
+                      boxShadow: "0 8px 28px rgba(200,16,46,0.38)",
+                    }}
+                  >
+                    Log out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link to="/login" onClick={() => setMenuOpen(false)} style={{
+                    background: "transparent", color: "white",
+                    padding: "0.9rem 2.4rem", borderRadius: 5,
+                    fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
+                    fontSize: 13, letterSpacing: 2, textTransform: "uppercase",
+                    textDecoration: "none", textAlign: "center", border: "1.5px solid rgba(255,255,255,0.32)",
+                  }}>Log In</Link>
+                  <Link to="/register" onClick={() => setMenuOpen(false)} style={{
+                    background: "#C8102E", color: "white",
+                    padding: "0.9rem 2.4rem", borderRadius: 5,
+                    fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
+                    fontSize: 13, letterSpacing: 2, textTransform: "uppercase",
+                    textDecoration: "none", textAlign: "center",
+                    boxShadow: "0 8px 28px rgba(200,16,46,0.38)",
+                  }}>Register</Link>
+                </>
+              )
+            )}
           </div>
         )}
       </nav>
