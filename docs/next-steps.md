@@ -4,18 +4,26 @@ Priority order. Each task is scoped for one sitting.
 
 ---
 
-## P0 — Fix build errors (blocker for CI/deploy)
+## P0 — Fix build errors ~~(blocker for CI/deploy)~~ ✅ DONE
 
-**Task 1: Fix Zod v4 incompatibility** — `backend/lib/validation.ts`
-- `invalid_type_error` was renamed; update to current Zod v4 field names.
-- Also fix `.errors` → use `e.issues` on `ZodError`.
-- ~30 min, one file.
+~~**Task 1: Fix Zod v4 incompatibility**~~ ✅
+- Fixed `invalid_type_error` → `error`, `errorMap` → `error`, `.errors` → `.issues` in `backend/lib/validation.ts`.
 
-**Task 2: Fix Stripe API version mismatch** — `backend/lib/stripe.ts`
-- The hardcoded API version string is behind the installed Stripe package.
-- Update the version string to match what `stripe@20` expects, or remove the
-  explicit override and let the SDK use its bundled default.
-- ~15 min, one file.
+~~**Task 2: Fix Stripe API version mismatch**~~ ✅
+- Updated API version to `2026-02-25.clover` in `backend/lib/stripe.ts`.
+- Also fixed `current_period_start`/`current_period_end` to read from `subscription.items.data[0]` (moved in Stripe API `2024-09-30`).
+
+~~**Task 3 (bonus): Admin panel membership data**~~ ✅
+- Added `findAll()` to `IMembershipRepository`, both stub and Supabase implementations.
+- `MembershipService.getAllMemberships()` now returns real data.
+
+~~**Task 4 (bonus): Dead `/member-register-form` route**~~ ✅
+- Added route alias in `frontend/src/App.jsx` pointing to `RegisterPage`.
+
+~~**Task 5 (bonus): Duplicate `transform` key in Navbar.jsx**~~ ✅
+- Removed the dead static `transform` override; animated transform now takes effect correctly.
+
+---
 
 ---
 
