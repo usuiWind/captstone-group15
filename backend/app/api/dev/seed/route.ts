@@ -65,9 +65,9 @@ export async function POST() {
   return NextResponse.json({
     success: true,
     accounts: [
-      { email: adminEmail, password: adminPassword, role: 'ADMIN' },
-      { email: memberEmail, password: memberPassword, role: 'MEMBER' },
+      { email: adminEmail, role: 'ADMIN' },
+      { email: memberEmail, role: 'MEMBER' },
     ],
-    note: 'Data is in-memory and resets on server restart.',
+    note: 'Data is in-memory and resets on server restart. Credentials are defined in the seed file.',
   })
 }
