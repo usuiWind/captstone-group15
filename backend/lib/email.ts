@@ -5,7 +5,9 @@
 import { Resend } from 'resend'
 
 const apiKey = process.env.RESEND_API_KEY
-const fromEmail = process.env.FROM_EMAIL ?? 'noreply@example.com'
+const fromEmail = process.env.FROM_EMAIL ?? 'onboarding@resend.dev'
+const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+const GROUPME_LINK = process.env.GROUPME_INVITE_LINK || ""
 
 const resend = apiKey ? new Resend(apiKey) : null
 
@@ -19,52 +21,6 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
     console.error(`[EMAIL] Failed to send "${subject}" to ${to}:`, error)
   }
 }
-
-export const emailService = {
-  sendWelcomeEmail: async (email: string, registerLink: string): Promise<void> => {
-    await sendEmail(
-      email,
-      'Welcome — complete your registration',
-      `<p>Thanks for joining! Click the link below to set your password and activate your account.</p>
-       <p><a href="${registerLink}">${registerLink}</a></p>
-       <p>This link expires in 24 hours.</p>`
-    )
-  },
-
-  sendPaymentFailedEmail: async (email: string): Promise<void> => {
-    await sendEmail(
-      email,
-      'Action required: payment failed',
-      `<p>We were unable to process your membership payment. Please update your payment method to keep your membership active.</p>`
-    )
-  },
-
-  sendCancellationEmail: async (email: string): Promise<void> => {
-    await sendEmail(
-      email,
-      'Your membership has been cancelled',
-      `<p>Your membership has been cancelled. We're sorry to see you go. You can rejoin at any time.</p>`
-    )
-  },
-
-  sendSubscriptionUpdatedEmail: async (email: string, planName: string): Promise<void> => {
-    await sendEmail(
-      email,
-      'Your membership plan has been updated',
-      `<p>Your membership has been updated to the <strong>${planName}</strong> plan.</p>`
-    )
-  },
-
-  sendPaymentSuccessEmail: async (email: string, amount: number): Promise<void> => {
-    await sendEmail(
-      email,
-      'Payment received — thank you!',
-      `<p>We received your payment of <strong>$${amount.toFixed(2)}</strong>. Your membership is active.</p>`
-    )
-  }
-}
-
-// ─── Email Templates ───────────────────────────────────────────────────────
 
 function membershipConfirmationTemplate(
   planName: string,
@@ -82,12 +38,10 @@ function membershipConfirmationTemplate(
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <h1 style="color: #2563eb;">🎉 Welcome to FITP!</h1>
       <p>Your membership has been activated. Here are your details:</p>
-
       <div style="background: #f3f4f6; border-radius: 8px; padding: 20px; margin: 20px 0;">
         <p><strong>Membership Plan:</strong> ${planName}</p>
         <p><strong>Membership Expires:</strong> ${formattedDate}</p>
       </div>
-
       <h2>Next Steps</h2>
       <p>
         <a href="${portalUrl}/dashboard"
@@ -95,28 +49,23 @@ function membershipConfirmationTemplate(
           Access Your Portal
         </a>
       </p>
-
       <p>
         <a href="${groupmeLink}"
            style="background: #16a34a; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">
           Join Our GroupMe
         </a>
       </p>
-
       <hr style="margin: 30px 0;" />
       <p style="color: #6b7280; font-size: 14px;">
-        Questions? Contact us at <a href="mailto:support@fitp.org">support@fitp.org</a><br/>
+        Questions? Contact us at <a href="mailto:support@fitpuh.org">support@fitpuh.org</a><br/>
         FITP Membership Portal — ${portalUrl}
       </p>
     </div>
   `;
 }
 
-// ─── Public emailService object (used throughout the codebase) ─────────────
-
 export const emailService = {
 
-  // Called by: webhook checkout.session.completed
   async sendWelcomeEmail(to: string, registerLink: string): Promise<void> {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -134,7 +83,6 @@ export const emailService = {
     await sendEmail(to, "Welcome to FITP — Complete Your Registration", html);
   },
 
-  // Called by: membershipService.handlePaymentSuccess → invoice.payment_succeeded
   async sendPaymentSuccessEmail(
     to: string,
     amountPaid: number,
@@ -143,12 +91,10 @@ export const emailService = {
   ): Promise<void> {
     const plan = planName || "FITP Membership";
     const expiry = expirationDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-
     const html = membershipConfirmationTemplate(plan, expiry, PORTAL_URL, GROUPME_LINK);
     await sendEmail(to, "✅ Payment Confirmed — FITP Membership Active", html);
   },
 
-  // Called by: membershipService.handlePaymentFailed → invoice.payment_failed
   async sendPaymentFailedEmail(to: string): Promise<void> {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -166,7 +112,6 @@ export const emailService = {
     await sendEmail(to, "⚠️ Payment Failed — Action Required", html);
   },
 
-  // Called by: membershipService.handleCancellation → customer.subscription.deleted
   async sendCancellationEmail(to: string): Promise<void> {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -184,7 +129,6 @@ export const emailService = {
     await sendEmail(to, "FITP Membership Cancelled", html);
   },
 
-  // Called by: membershipService.handleSubscriptionUpdate
   async sendSubscriptionUpdatedEmail(to: string, newPlanName: string): Promise<void> {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -200,4 +144,4 @@ export const emailService = {
     `;
     await sendEmail(to, "Your FITP Plan Has Been Updated", html);
   },
-};
+}
