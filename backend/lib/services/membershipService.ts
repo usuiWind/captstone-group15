@@ -154,6 +154,10 @@ export class MembershipService {
   }
 
   async getAllMemberships(status?: string): Promise<Membership[]> {
-    return []
+    const memberships = await repositories.membership.findAll()
+    if (status) {
+      return memberships.filter((m) => m.status === status)
+    }
+    return memberships
   }
 }
