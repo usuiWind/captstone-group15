@@ -20,9 +20,10 @@ export class MembershipService {
     const subscription = await stripe().subscriptions.retrieve(subscriptionId)
 
     
-    const planName = subscription.items.data[0]?.price?.nickname || 'Unknown Plan'
-    const currentPeriodStart = new Date(subscription.current_period_start * 1000)
-    const currentPeriodEnd = new Date(subscription.current_period_end * 1000)
+    const item = subscription.items.data[0]
+    const planName = item?.price?.nickname || 'Unknown Plan'
+    const currentPeriodStart = new Date((item?.current_period_start ?? 0) * 1000)
+    const currentPeriodEnd = new Date((item?.current_period_end ?? 0) * 1000)
 
     const createMembershipInput: CreateMembershipInput = {
       userId,
@@ -117,9 +118,10 @@ export class MembershipService {
       throw new Error('Membership not found for subscription')
     }
 
-    const planName = subscription.items.data[0]?.price?.nickname || 'Unknown Plan'
-    const currentPeriodStart = new Date(subscription.current_period_start * 1000)
-    const currentPeriodEnd = new Date(subscription.current_period_end * 1000)
+    const item = subscription.items.data[0]
+    const planName = item?.price?.nickname || 'Unknown Plan'
+    const currentPeriodStart = new Date((item?.current_period_start ?? 0) * 1000)
+    const currentPeriodEnd = new Date((item?.current_period_end ?? 0) * 1000)
 
     const updatedMembership = await repositories.membership.update(membership.id, {
       planName,
