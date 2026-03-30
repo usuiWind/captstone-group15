@@ -7,41 +7,20 @@ import MembershipPage from './pages/MembershipPage'
 import SponsorshipsPage from './pages/SponsorshipsPage'
 import ContactPage from './pages/ContactPage'
 import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import DashboardPage from './pages/DashboardPage'
-import AdminPage from './pages/AdminPage'
-import ProtectedRoute from './components/ProtectedRoute'
 
 export default function App() {
   return (
     <div style={{ width: "100%", overflowX: "hidden" }}>
       <BrowserRouter>
         <Routes>
-          {/* Public */}
-          <Route path="/"            element={<HomePage />} />
-          <Route path="/about"       element={<AboutPage />} />
-          <Route path="/officers"    element={<LeadershipPage />} />
-          <Route path="/gallery"     element={<GalleryPage />} />
-          <Route path="/membership"  element={<MembershipPage />} />
-          <Route path="/sponsorships"element={<SponsorshipsPage />} />
-          <Route path="/contact"     element={<ContactPage />} />
-          <Route path="/login"       element={<LoginPage />} />
-          <Route path="/register"            element={<RegisterPage />} />
-          <Route path="/member-register-form" element={<RegisterPage />} />
-
-          {/* Member portal */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          } />
-
-          {/* Admin portal */}
-          <Route path="/admin" element={
-            <ProtectedRoute adminOnly>
-              <AdminPage />
-            </ProtectedRoute>
-          } />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/officers" element={<LeadershipPage />} />
+          <Route path="/gallery" element={<GalleryPage />} />
+          <Route path="/membership" element={<MembershipPage />} />
+          <Route path="/sponsorships" element={<SponsorshipsPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/login" element={<LoginPage />} />
         </Routes>
       </BrowserRouter>
     </div>

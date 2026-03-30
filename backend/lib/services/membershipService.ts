@@ -16,9 +16,9 @@ export class MembershipService {
       throw new Error('Missing required session data')
     }
 
-    // Get subscription details from Stripe
-    const { stripe: getStripe } = await import('../stripe')
-    const subscription = await getStripe().subscriptions.retrieve(subscriptionId)
+    const { stripe } = await import('../stripe')
+    const subscription = await stripe().subscriptions.retrieve(subscriptionId)
+
     
     const item = subscription.items.data[0]
     const planName = item?.price?.nickname || 'Unknown Plan'
@@ -57,7 +57,12 @@ export class MembershipService {
     // Send payment success email
     const user = await repositories.user.findById(membership.userId)
     if (user) {
-      await emailService.sendPaymentSuccessEmail(user.email, invoice.amount_paid / 100)
+      await emailService.sendPaymentSuccessEmail(
+        user.email,
+        invoice.amount_paid / 100,
+        updatedMembership.planName,
+        updatedMembership.currentPeriodEnd
+      )
     }
 
     return updatedMembership
@@ -118,7 +123,6 @@ export class MembershipService {
     const currentPeriodStart = new Date((item?.current_period_start ?? 0) * 1000)
     const currentPeriodEnd = new Date((item?.current_period_end ?? 0) * 1000)
 
-    // Update membership details
     const updatedMembership = await repositories.membership.update(membership.id, {
       planName,
       currentPeriodStart,
@@ -127,7 +131,6 @@ export class MembershipService {
       status: subscription.status === 'active' ? 'ACTIVE' : membership.status
     })
 
-    // Send updated email if plan changed
     if (membership.planName !== planName) {
       const user = await repositories.user.findById(membership.userId)
       if (user) {
@@ -151,10 +154,6 @@ export class MembershipService {
   }
 
   async getAllMemberships(status?: string): Promise<Membership[]> {
-    const all = await repositories.membership.findAll()
-    if (status) {
-      return all.filter(m => m.status === status)
-    }
-    return all
+    return []
   }
 }
