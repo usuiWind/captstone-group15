@@ -16,13 +16,14 @@ export class MembershipService {
       throw new Error('Missing required session data')
     }
 
-    // Get subscription details from Stripe
     const { stripe } = await import('../stripe')
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+    const subscription = await stripe().subscriptions.retrieve(subscriptionId)
+
     
-    const planName = subscription.items.data[0]?.price?.nickname || 'Unknown Plan'
-    const currentPeriodStart = new Date(subscription.current_period_start * 1000)
-    const currentPeriodEnd = new Date(subscription.current_period_end * 1000)
+    const item = subscription.items.data[0]
+    const planName = item?.price?.nickname || 'Unknown Plan'
+    const currentPeriodStart = new Date((item?.current_period_start ?? 0) * 1000)
+    const currentPeriodEnd = new Date((item?.current_period_end ?? 0) * 1000)
 
     const createMembershipInput: CreateMembershipInput = {
       userId,
@@ -53,24 +54,19 @@ export class MembershipService {
       currentPeriodEnd: new Date(invoice.period_end * 1000)
     })
 
-    /const updatedMembership = await repositories.membership.update(membership.id, {
-  status: 'ACTIVE',
-  currentPeriodStart: new Date(invoice.period_start * 1000),
-  currentPeriodEnd: new Date(invoice.period_end * 1000)
-})
+    // Send payment success email
+    const user = await repositories.user.findById(membership.userId)
+    if (user) {
+      await emailService.sendPaymentSuccessEmail(
+        user.email,
+        invoice.amount_paid / 100,
+        updatedMembership.planName,
+        updatedMembership.currentPeriodEnd
+      )
+    }
 
-// Send payment success email
-const user = await repositories.user.findById(membership.userId)
-if (user) {
-  await emailService.sendPaymentSuccessEmail(
-    user.email,
-    invoice.amount_paid / 100,
-    updatedMembership.planName,        // pass plan name
-    updatedMembership.currentPeriodEnd // pass expiry date
-  )
-}
-
-return updatedMembership
+    return updatedMembership
+  }
 
   async handlePaymentFailed(invoice: any): Promise<Membership> {
     const subscriptionId = invoice.subscription as string
@@ -122,11 +118,11 @@ return updatedMembership
       throw new Error('Membership not found for subscription')
     }
 
-    const planName = subscription.items.data[0]?.price?.nickname || 'Unknown Plan'
-    const currentPeriodStart = new Date(subscription.current_period_start * 1000)
-    const currentPeriodEnd = new Date(subscription.current_period_end * 1000)
+    const item = subscription.items.data[0]
+    const planName = item?.price?.nickname || 'Unknown Plan'
+    const currentPeriodStart = new Date((item?.current_period_start ?? 0) * 1000)
+    const currentPeriodEnd = new Date((item?.current_period_end ?? 0) * 1000)
 
-    // Update membership details
     const updatedMembership = await repositories.membership.update(membership.id, {
       planName,
       currentPeriodStart,
@@ -135,7 +131,6 @@ return updatedMembership
       status: subscription.status === 'active' ? 'ACTIVE' : membership.status
     })
 
-    // Send updated email if plan changed
     if (membership.planName !== planName) {
       const user = await repositories.user.findById(membership.userId)
       if (user) {
@@ -159,8 +154,10 @@ return updatedMembership
   }
 
   async getAllMemberships(status?: string): Promise<Membership[]> {
-    // This would need to be implemented in the repository
-    // For now, return empty array
-    return []
+    const memberships = await repositories.membership.findAll()
+    if (status) {
+      return memberships.filter((m) => m.status === status)
+    }
+    return memberships
   }
 }
