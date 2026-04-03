@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SponsorService } from '@/lib/services/sponsorService'
+import { generalRateLimit, getClientIdentifier } from '@/lib/rateLimit'
+
+export const maxDuration = 30
 
 const sponsorService = new SponsorService()
 
 export async function GET(request: NextRequest) {
+  const rl = generalRateLimit(getClientIdentifier(request))
+  if (!rl.allowed) {
+    return NextResponse.json({ success: false, error: 'Rate limit exceeded. Please try again later.' }, { status: 429 })
+  }
+
   try {
     const sponsorsByTier = await sponsorService.getSponsorsByTier()
 

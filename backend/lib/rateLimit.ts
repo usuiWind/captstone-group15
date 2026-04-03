@@ -78,6 +78,18 @@ export const generalRateLimit = createRateLimit({
   message: 'Rate limit exceeded. Please try again later.'
 })
 
+export const adminRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  maxRequests: 200, // Higher limit for authenticated admin operations
+  message: 'Rate limit exceeded. Please try again later.'
+})
+
+export const contactRateLimit = createRateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  maxRequests: 10, // 10 contact form submissions per hour
+  message: 'Too many contact form submissions. Please try again later.'
+})
+
 export function getClientIdentifier(request: any): string {
   // Try to get client IP from various headers
   const forwarded = request.headers.get('x-forwarded-for')

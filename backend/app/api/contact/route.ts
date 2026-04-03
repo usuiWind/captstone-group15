@@ -1,31 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generalRateLimit, getClientIdentifier } from '../../../lib/rateLimit'
+import { contactRateLimit, getClientIdentifier } from '../../../lib/rateLimit'
+import { validateRequest, contactSchema } from '../../../lib/validation'
+
+export const maxDuration = 30
 
 export async function POST(request: NextRequest) {
-  const identifier = getClientIdentifier(request)
-  const rl = generalRateLimit(identifier)
+  const rl = contactRateLimit(getClientIdentifier(request))
   if (!rl.allowed) {
     return NextResponse.json(
-      { success: false, error: 'Too many requests. Please try again later.' },
+      { success: false, error: 'Too many contact form submissions. Please try again later.' },
       { status: 429 }
     )
   }
 
   try {
     const body = await request.json().catch(() => ({}))
-    const { firstName, lastName, email, message } = body as {
-      firstName?: string
-      lastName?: string
-      email?: string
-      message?: string
-    }
-
-    if (!firstName || !lastName || !email || !message) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
-        { status: 400 }
-      )
-    }
+    const { firstName, lastName, email, message } = validateRequest(contactSchema, body)
 
     console.log('[CONTACT] New inquiry received:', {
       firstName,
@@ -36,6 +26,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
+    // Return Zod validation messages to help users correct their input
+    if (error.message) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 })
+    }
     console.error('Contact form error:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to submit contact form' },

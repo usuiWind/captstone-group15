@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { UserService } from '@/lib/services/userService'
+
+export const maxDuration = 30
 import { authRateLimit, getClientIdentifier } from '@/lib/rateLimit'
 import { validateRequest, registerSchema } from '@/lib/validation'
 import { createSecureResponse, createSecureErrorResponse } from '@/lib/security'

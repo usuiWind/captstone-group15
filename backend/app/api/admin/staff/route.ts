@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-
 import { StaffService } from '@/lib/services/staffService'
+import { adminRateLimit, getClientIdentifier } from '@/lib/rateLimit'
+import { validateRequest, staffSchema } from '@/lib/validation'
+
+export const maxDuration = 30
 
 const staffService = new StaffService()
 
 export async function POST(request: NextRequest) {
+  const rl = adminRateLimit(getClientIdentifier(request))
+  if (!rl.allowed) {
+    return NextResponse.json({ success: false, error: 'Rate limit exceeded. Please try again later.' }, { status: 429 })
+  }
+
   try {
     const session = await auth()
-    
+
     if (!session?.user?.id || session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { success: false, error: 'Admin access required' },
@@ -17,28 +25,24 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData()
-    const name = formData.get('name') as string
-    const role = formData.get('role') as string
-    const bio = formData.get('bio') as string
-    const email = formData.get('email') as string
-    const order = parseInt(formData.get('order') as string)
-    const isActive = formData.get('isActive') === 'true'
+    const rawOrder = parseInt(formData.get('order') as string)
+    const validated = validateRequest(staffSchema, {
+      name: formData.get('name'),
+      role: formData.get('role'),
+      bio: formData.get('bio') || undefined,
+      email: formData.get('email') || undefined,
+      order: isNaN(rawOrder) ? undefined : rawOrder,
+      isActive: formData.get('isActive') === 'true',
+    })
     const imageFile = formData.get('image') as File
 
-    if (!name || !role || isNaN(order)) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields: name, role, order' },
-        { status: 400 }
-      )
-    }
-
     const staff = await staffService.createStaff({
-      name,
-      role,
-      bio: bio || undefined,
-      email: email || undefined,
-      order,
-      isActive
+      name: validated.name,
+      role: validated.role,
+      bio: validated.bio,
+      email: validated.email,
+      order: validated.order,
+      isActive: validated.isActive
     }, imageFile || undefined)
 
     return NextResponse.json({
@@ -55,9 +59,14 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const rl = adminRateLimit(getClientIdentifier(request))
+  if (!rl.allowed) {
+    return NextResponse.json({ success: false, error: 'Rate limit exceeded. Please try again later.' }, { status: 429 })
+  }
+
   try {
     const session = await auth()
-    
+
     if (!session?.user?.id || session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { success: false, error: 'Admin access required' },
@@ -67,28 +76,26 @@ export async function PUT(request: NextRequest) {
 
     const formData = await request.formData()
     const id = formData.get('id') as string
-    const name = formData.get('name') as string
-    const role = formData.get('role') as string
-    const bio = formData.get('bio') as string
-    const email = formData.get('email') as string
-    const order = formData.get('order') as string
-    const isActive = formData.get('isActive') as string
-    const imageFile = formData.get('image') as File
 
-    if (!id) {
+    if (!id || typeof id !== 'string' || id.trim() === '') {
       return NextResponse.json(
         { success: false, error: 'Missing staff ID' },
         { status: 400 }
       )
     }
 
-    const updateData: any = {}
-    if (name) updateData.name = name
-    if (role) updateData.role = role
-    if (bio !== null) updateData.bio = bio || undefined
-    if (email !== null) updateData.email = email || undefined
-    if (order) updateData.order = parseInt(order)
-    if (isActive !== null) updateData.isActive = isActive === 'true'
+    // Validate only the fields that are present
+    const partialStaffSchema = staffSchema.partial()
+    const rawOrder = formData.get('order') ? parseInt(formData.get('order') as string) : undefined
+    const updateData = validateRequest(partialStaffSchema, {
+      ...(formData.get('name') ? { name: formData.get('name') } : {}),
+      ...(formData.get('role') ? { role: formData.get('role') } : {}),
+      ...(formData.get('bio') !== null ? { bio: (formData.get('bio') as string) || undefined } : {}),
+      ...(formData.get('email') !== null ? { email: (formData.get('email') as string) || undefined } : {}),
+      ...(rawOrder !== undefined && !isNaN(rawOrder) ? { order: rawOrder } : {}),
+      ...(formData.get('isActive') !== null ? { isActive: formData.get('isActive') === 'true' } : {}),
+    })
+    const imageFile = formData.get('image') as File
 
     const staff = await staffService.updateStaff(id, updateData, imageFile || undefined)
 
@@ -106,9 +113,14 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const rl = adminRateLimit(getClientIdentifier(request))
+  if (!rl.allowed) {
+    return NextResponse.json({ success: false, error: 'Rate limit exceeded. Please try again later.' }, { status: 429 })
+  }
+
   try {
     const session = await auth()
-    
+
     if (!session?.user?.id || session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { success: false, error: 'Admin access required' },
@@ -119,7 +131,7 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
-    if (!id) {
+    if (!id || id.trim() === '') {
       return NextResponse.json(
         { success: false, error: 'Missing staff ID' },
         { status: 400 }

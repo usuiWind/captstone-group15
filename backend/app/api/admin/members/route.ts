@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-
 import { UserService } from '@/lib/services/userService'
 import { MembershipService } from '@/lib/services/membershipService'
+import { adminRateLimit, getClientIdentifier } from '@/lib/rateLimit'
+
+export const maxDuration = 30
 
 const userService = new UserService()
 const membershipService = new MembershipService()
 
 export async function GET(request: NextRequest) {
+  const rl = adminRateLimit(getClientIdentifier(request))
+  if (!rl.allowed) {
+    return NextResponse.json({ success: false, error: 'Rate limit exceeded. Please try again later.' }, { status: 429 })
+  }
+
   try {
     const session = await auth()
     

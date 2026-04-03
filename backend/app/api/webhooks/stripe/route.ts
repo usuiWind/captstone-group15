@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+
+export const maxDuration = 30
 import { UserService } from '@/lib/services/userService'
 import { MembershipService } from '@/lib/services/membershipService'
 import { repositories } from '@/lib/container'

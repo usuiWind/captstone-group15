@@ -4,6 +4,15 @@
 
 import { Resend } from 'resend'
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+}
+
 const apiKey = process.env.RESEND_API_KEY
 const fromEmail = process.env.FROM_EMAIL ?? 'onboarding@resend.dev'
 const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
@@ -39,7 +48,7 @@ function membershipConfirmationTemplate(
       <h1 style="color: #2563eb;">🎉 Welcome to FITP!</h1>
       <p>Your membership has been activated. Here are your details:</p>
       <div style="background: #f3f4f6; border-radius: 8px; padding: 20px; margin: 20px 0;">
-        <p><strong>Membership Plan:</strong> ${planName}</p>
+        <p><strong>Membership Plan:</strong> ${escapeHtml(planName)}</p>
         <p><strong>Membership Expires:</strong> ${formattedDate}</p>
       </div>
       <h2>Next Steps</h2>
@@ -133,7 +142,7 @@ export const emailService = {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h1 style="color: #2563eb;">Membership Plan Updated</h1>
-        <p>Your FITP membership plan has been updated to: <strong>${newPlanName}</strong></p>
+        <p>Your FITP membership plan has been updated to: <strong>${escapeHtml(newPlanName)}</strong></p>
         <p>
           <a href="${PORTAL_URL}/dashboard"
              style="background: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">

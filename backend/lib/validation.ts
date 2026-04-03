@@ -41,6 +41,19 @@ export const sponsorSchema = z.object({
   endDate: z.string().datetime('Invalid end date format').optional()
 })
 
+// Contact form validation schema
+export const contactSchema = z.object({
+  firstName: z.string().min(1, 'First name is required').max(50, 'First name too long'),
+  lastName: z.string().min(1, 'Last name is required').max(50, 'Last name too long'),
+  email: z.string().email('Invalid email format').max(254, 'Email too long'),
+  message: z.string().min(1, 'Message is required').max(2000, 'Message too long')
+})
+
+// Admin attendance update validation schema (for PUT updates)
+export const updateAttendanceSchema = createAttendanceSchema.partial().extend({
+  id: z.string().uuid('Invalid attendance ID format')
+})
+
 // Validation helper function
 export function validateRequest<T>(schema: z.ZodSchema<T>, data: unknown): T {
   try {

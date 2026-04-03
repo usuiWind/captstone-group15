@@ -8,10 +8,10 @@ export async function POST() {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const adminEmail = 'admin@test.com'
-  const memberEmail = 'member@test.com'
-  const adminPassword = 'Admin1234!'
-  const memberPassword = 'Member1234!'
+  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@test.com'
+  const memberEmail = process.env.SEED_MEMBER_EMAIL || 'member@test.com'
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'Admin1234!'
+  const memberPassword = process.env.SEED_MEMBER_PASSWORD || 'Member1234!'
 
   // -- Admin user --
   let admin = await repositories.user.findByEmail(adminEmail)

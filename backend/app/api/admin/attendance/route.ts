@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-
 import { AttendanceService } from '@/lib/services/attendanceService'
+import { adminRateLimit, getClientIdentifier } from '@/lib/rateLimit'
+import { validateRequest, createAttendanceSchema } from '@/lib/validation'
+
+export const maxDuration = 30
 
 const attendanceService = new AttendanceService()
 
 export async function POST(request: NextRequest) {
+  const rl = adminRateLimit(getClientIdentifier(request))
+  if (!rl.allowed) {
+    return NextResponse.json({ success: false, error: 'Rate limit exceeded. Please try again later.' }, { status: 429 })
+  }
+
   try {
     const session = await auth()
-    
+
     if (!session?.user?.id || session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { success: false, error: 'Admin access required' },
@@ -17,21 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { userId, date, eventName, points } = body
-
-    if (!userId || !date || !points) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields: userId, date, points' },
-        { status: 400 }
-      )
-    }
-
-    if (typeof points !== 'number' || points < 0) {
-      return NextResponse.json(
-        { success: false, error: 'Points must be a non-negative number' },
-        { status: 400 }
-      )
-    }
+    const { userId, date, eventName, points } = validateRequest(createAttendanceSchema, body)
 
     const attendance = await attendanceService.createAttendance({
       userId,
