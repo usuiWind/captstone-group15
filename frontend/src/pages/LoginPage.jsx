@@ -161,7 +161,7 @@ export default function LoginPage() {
     // ─────────────────────────────────────────────────────────────────────────
     setTimeout(() => {
       setLoading(false);
-      window.location.href = isAdmin ? "/admin" : "/";
+      window.location.href = isAdmin ? "/admin" : "/dashboard";
     }, 1200);
   };
 
