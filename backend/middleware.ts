@@ -4,9 +4,8 @@ import { getToken } from 'next-auth/jwt'
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173'
 
 function withCors(res: NextResponse, origin: string | null) {
-  if (origin && (origin === FRONTEND_ORIGIN || FRONTEND_ORIGIN === '*')) {
-    const allowOrigin = FRONTEND_ORIGIN === '*' ? origin : FRONTEND_ORIGIN
-    res.headers.set('Access-Control-Allow-Origin', allowOrigin)
+  if (origin && origin === FRONTEND_ORIGIN) {
+    res.headers.set('Access-Control-Allow-Origin', FRONTEND_ORIGIN)
     res.headers.set('Access-Control-Allow-Credentials', 'true')
     res.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
     res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
