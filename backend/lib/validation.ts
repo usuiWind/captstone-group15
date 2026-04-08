@@ -41,6 +41,19 @@ export const sponsorSchema = z.object({
   endDate: z.string().datetime('Invalid end date format').optional()
 })
 
+// MFA: step-1 schema (validate password, send OTP)
+export const sendOtpSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(1, 'Password is required'),
+})
+
+// MFA: step-2 schema (passed to NextAuth credentials)
+export const verifyOtpSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(1, 'Password is required'),
+  otpCode: z.string().length(6, 'Code must be 6 digits').regex(/^\d{6}$/, 'Code must be 6 digits'),
+})
+
 // Validation helper function
 export function validateRequest<T>(schema: z.ZodSchema<T>, data: unknown): T {
   try {

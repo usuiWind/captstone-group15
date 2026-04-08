@@ -1,4 +1,4 @@
-import { User, Membership, Attendance, StaffMember, Sponsor, VerificationToken, CreateUserInput, CreateMembershipInput, CreateAttendanceInput, CreateStaffInput, CreateSponsorInput } from './models'
+import { User, Membership, Attendance, StaffMember, Sponsor, VerificationToken, MfaCode, CreateUserInput, CreateMembershipInput, CreateAttendanceInput, CreateStaffInput, CreateSponsorInput, CreateMfaCodeInput } from './models'
 
 export interface IUserRepository {
   findByEmail(email: string): Promise<User | null>
@@ -47,5 +47,12 @@ export interface IVerificationTokenRepository {
   create(data: VerificationToken): Promise<VerificationToken>
   findByToken(token: string): Promise<VerificationToken | null>
   delete(token: string): Promise<void>
+  deleteExpired(): Promise<void>
+}
+
+export interface IMfaCodeRepository {
+  create(data: CreateMfaCodeInput): Promise<MfaCode>
+  findByUserId(userId: string): Promise<MfaCode | null>
+  deleteByUserId(userId: string): Promise<void>
   deleteExpired(): Promise<void>
 }

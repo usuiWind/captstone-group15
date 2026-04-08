@@ -144,4 +144,18 @@ export const emailService = {
     `;
     await sendEmail(to, "Your FITP Plan Has Been Updated", html);
   },
+
+  async sendOtpCode(to: string, code: string): Promise<void> {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #2563eb;">Your Login Verification Code</h1>
+        <p>Use the code below to complete your sign-in:</p>
+        <div style="background: #f3f4f6; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
+          <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px;">${code}</span>
+        </div>
+        <p style="color: #6b7280; font-size: 14px;">This code expires in 5 minutes. Do not share it with anyone.</p>
+      </div>
+    `;
+    await sendEmail(to, 'Your FITP verification code', html);
+  },
 }

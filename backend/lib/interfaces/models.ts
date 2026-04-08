@@ -61,6 +61,20 @@ export interface VerificationToken {
   expires: Date
 }
 
+export interface MfaCode {
+  id: string
+  userId: string
+  code: string
+  expiresAt: Date
+  createdAt: Date
+}
+
+export interface CreateMfaCodeInput {
+  userId: string
+  code: string
+  expiresAt: Date
+}
+
 // Input types for creation
 export interface CreateUserInput {
   email: string

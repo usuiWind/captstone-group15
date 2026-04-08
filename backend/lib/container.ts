@@ -4,7 +4,8 @@ import {
   IAttendanceRepository,
   IStaffRepository,
   ISponsorRepository,
-  IVerificationTokenRepository
+  IVerificationTokenRepository,
+  IMfaCodeRepository,
 } from './interfaces/repositories'
 
 import {
@@ -13,7 +14,8 @@ import {
   attendanceRepositoryStub,
   staffRepositoryStub,
   sponsorRepositoryStub,
-  verificationTokenRepositoryStub
+  verificationTokenRepositoryStub,
+  mfaCodeRepositoryStub,
 } from './repositories/stubs'
 
 // Swap to Supabase repositories when SUPABASE_URL is configured.
@@ -25,6 +27,7 @@ function buildRepositories() {
       membershipRepositorySupabase,
       attendanceRepositorySupabase,
       verificationTokenRepositorySupabase,
+      mfaCodeRepositorySupabase,
     } = require('./repositories/supabase')
 
     return {
@@ -34,6 +37,7 @@ function buildRepositories() {
       staff: staffRepositoryStub as IStaffRepository,
       sponsor: sponsorRepositoryStub as ISponsorRepository,
       verificationToken: verificationTokenRepositorySupabase as IVerificationTokenRepository,
+      mfaCode: mfaCodeRepositorySupabase as IMfaCodeRepository,
     }
   }
 
@@ -45,6 +49,7 @@ function buildRepositories() {
     staff: staffRepositoryStub as IStaffRepository,
     sponsor: sponsorRepositoryStub as ISponsorRepository,
     verificationToken: verificationTokenRepositoryStub as IVerificationTokenRepository,
+    mfaCode: mfaCodeRepositoryStub as IMfaCodeRepository,
   }
 }
 
