@@ -55,6 +55,24 @@ export interface Sponsor {
   createdAt: Date
 }
 
+export interface ClubEvent {
+  id: string
+  title: string
+  description?: string
+  eventDate: Date
+  pointsValue: number
+  createdBy?: string
+  createdAt: Date
+}
+
+export interface CreateEventInput {
+  title: string
+  description?: string
+  eventDate: Date
+  pointsValue: number
+  createdBy?: string
+}
+
 export interface VerificationToken {
   identifier: string
   token: string

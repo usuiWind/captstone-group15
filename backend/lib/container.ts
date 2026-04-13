@@ -2,6 +2,7 @@ import {
   IUserRepository,
   IMembershipRepository,
   IAttendanceRepository,
+  IEventRepository,
   IStaffRepository,
   ISponsorRepository,
   IVerificationTokenRepository
@@ -11,28 +12,32 @@ import {
   userRepositoryStub,
   membershipRepositoryStub,
   attendanceRepositoryStub,
+  eventRepositoryStub,
   staffRepositoryStub,
   sponsorRepositoryStub,
   verificationTokenRepositoryStub
 } from './repositories/stubs'
 
 // Swap to Supabase repositories when SUPABASE_URL is configured.
-// Staff and sponsor repositories stay as stubs (data is hardcoded in the frontend).
 function buildRepositories() {
   if (process.env.SUPABASE_URL) {
     const {
       userRepositorySupabase,
       membershipRepositorySupabase,
       attendanceRepositorySupabase,
+      eventRepositorySupabase,
       verificationTokenRepositorySupabase,
+      staffRepositorySupabase,
+      sponsorRepositorySupabase,
     } = require('./repositories/supabase')
 
     return {
       user: userRepositorySupabase as IUserRepository,
       membership: membershipRepositorySupabase as IMembershipRepository,
       attendance: attendanceRepositorySupabase as IAttendanceRepository,
-      staff: staffRepositoryStub as IStaffRepository,
-      sponsor: sponsorRepositoryStub as ISponsorRepository,
+      event: eventRepositorySupabase as IEventRepository,
+      staff: staffRepositorySupabase as IStaffRepository,
+      sponsor: sponsorRepositorySupabase as ISponsorRepository,
       verificationToken: verificationTokenRepositorySupabase as IVerificationTokenRepository,
     }
   }
@@ -42,6 +47,7 @@ function buildRepositories() {
     user: userRepositoryStub as IUserRepository,
     membership: membershipRepositoryStub as IMembershipRepository,
     attendance: attendanceRepositoryStub as IAttendanceRepository,
+    event: eventRepositoryStub as IEventRepository,
     staff: staffRepositoryStub as IStaffRepository,
     sponsor: sponsorRepositoryStub as ISponsorRepository,
     verificationToken: verificationTokenRepositoryStub as IVerificationTokenRepository,

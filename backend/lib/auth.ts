@@ -46,9 +46,13 @@ const authOptions = {
       return token
     },
     async session({ session, token }: { session: any; token: any }) {
-      if (token) {
-        session.user.id = token.sub!
-        session.user.role = token.role as string
+      if (token?.sub) {
+        // Re-fetch role from DB on every request so role changes (e.g. admin
+        // demotion via PATCH /api/admin/members) take effect immediately instead
+        // of persisting until JWT expiry (up to 30 days with the default strategy).
+        const freshUser = await repositories.user.findById(token.sub)
+        session.user.id = token.sub
+        session.user.role = freshUser?.role ?? (token.role as string)
       }
       return session
     }

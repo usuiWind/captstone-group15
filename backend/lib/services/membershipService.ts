@@ -1,6 +1,7 @@
 import { Membership, CreateMembershipInput } from '../interfaces/models'
 import { repositories } from '../container'
 import { emailService } from '../email'
+import { cancelSubscriptionImmediately } from '../stripe'
 
 export class MembershipService {
   async getByUserId(userId: string): Promise<Membership | null> {
@@ -139,6 +140,40 @@ export class MembershipService {
     }
 
     return updatedMembership
+  }
+
+  // Cancels the Stripe subscription immediately and marks the membership CANCELLED.
+  // Used by admin revoke — does not delete the membership record.
+  async revokeByUserId(userId: string): Promise<Membership | null> {
+    const membership = await repositories.membership.findByUserId(userId)
+    if (!membership) return null
+
+    if (membership.stripeSubscriptionId) {
+      try {
+        await cancelSubscriptionImmediately(membership.stripeSubscriptionId)
+      } catch {
+        // Subscription may already be cancelled in Stripe; proceed to update DB
+      }
+    }
+
+    return await repositories.membership.update(membership.id, { status: 'CANCELLED' })
+  }
+
+  // Cancels the Stripe subscription immediately and deletes the membership record.
+  // Used before deleting the user entirely.
+  async deleteByUserId(userId: string): Promise<void> {
+    const membership = await repositories.membership.findByUserId(userId)
+    if (!membership) return
+
+    if (membership.stripeSubscriptionId) {
+      try {
+        await cancelSubscriptionImmediately(membership.stripeSubscriptionId)
+      } catch {
+        // Subscription may already be cancelled in Stripe; proceed to delete record
+      }
+    }
+
+    await repositories.membership.delete(membership.id)
   }
 
   async markCancelAtPeriodEnd(userId: string): Promise<Membership> {

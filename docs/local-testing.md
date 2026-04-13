@@ -6,14 +6,16 @@ No database or Stripe account required. Everything runs in-memory.
 
 ## Step 1 — Environment
 
-Create `backend/.env.local` with just these two values:
+Create `backend/.env.local`:
 
 ```env
 NEXTAUTH_SECRET=dev-secret-change-in-production
 NEXTAUTH_URL=http://localhost:3000
+FORMS_WEBHOOK_SECRET=test-forms-secret
+FORMS_DEFAULT_POINTS=1
 ```
 
-Leave `SUPABASE_URL` unset. The app will use in-memory stubs automatically.
+Leave `SUPABASE_URL` unset. The app uses in-memory stubs automatically.
 
 ---
 
@@ -24,20 +26,20 @@ Leave `SUPABASE_URL` unset. The app will use in-memory stubs automatically.
 cd backend
 npm install
 npm run dev
-# Running on http://localhost:3000
+# http://localhost:3000
 
-# Terminal 2 — frontend (optional, not needed for API testing)
+# Terminal 2 — frontend (optional)
 cd frontend
 npm install
 npm run dev
-# Running on http://localhost:5173
+# http://localhost:5173
 ```
 
 ---
 
 ## Step 3 — Seed Test Accounts
 
-The in-memory store starts empty. Run the seed endpoint once after every restart:
+In-memory store starts empty. Run once after every restart:
 
 ```bash
 curl -X POST http://localhost:3000/api/dev/seed
@@ -50,18 +52,17 @@ Response:
   "accounts": [
     { "email": "admin@test.com", "password": "Admin1234!", "role": "ADMIN" },
     { "email": "member@test.com", "password": "Member1234!", "role": "MEMBER" }
-  ],
-  "note": "Data is in-memory and resets on server restart."
+  ]
 }
 ```
 
-This also creates an ACTIVE Monthly membership and 30 attendance points for the member account.
+Creates ACTIVE Monthly membership and 30 attendance points for the member account.
 
 ---
 
-## Step 4 — Get a Session (Postman)
+## Step 4 — Obtain a Session (Postman)
 
-NextAuth uses httpOnly cookies. Postman handles them automatically if you follow these steps.
+NextAuth uses httpOnly cookies. Postman handles them automatically.
 
 ### 4a. Get CSRF Token
 
@@ -69,7 +70,6 @@ NextAuth uses httpOnly cookies. Postman handles them automatically if you follow
 GET http://localhost:3000/api/auth/csrf
 ```
 
-Response:
 ```json
 { "csrfToken": "abc123..." }
 ```
@@ -78,22 +78,18 @@ Response:
 
 ```
 POST http://localhost:3000/api/auth/callback/credentials
+Body: x-www-form-urlencoded
 ```
 
-**Body → x-www-form-urlencoded** (not JSON):
-
 | Key | Value |
-|-----|-------|
-| `email` | `member@test.com` |
-| `password` | `Member1234!` |
-| `csrfToken` | *(paste from step 4a)* |
+|---|---|
+| `email` | `admin@test.com` |
+| `password` | `Admin1234!` |
+| `csrfToken` | (from 4a) |
 | `redirect` | `false` |
 | `json` | `true` |
 
-Postman will store the `next-auth.session-token` cookie automatically.
-All subsequent requests in the same collection will send it.
-
-To sign in as admin, repeat with `admin@test.com` / `Admin1234!`.
+Postman stores `next-auth.session-token` automatically. Repeat with `member@test.com` for a member session.
 
 ### 4c. Verify Session
 
@@ -101,10 +97,9 @@ To sign in as admin, repeat with `admin@test.com` / `Admin1234!`.
 GET http://localhost:3000/api/auth/session
 ```
 
-Expected:
 ```json
 {
-  "user": { "name": "Test Member", "email": "member@test.com", "role": "MEMBER", "id": "..." },
+  "user": { "id": "...", "email": "admin@test.com", "role": "ADMIN" },
   "expires": "..."
 }
 ```
@@ -113,92 +108,105 @@ Expected:
 
 ## Step 5 — Test Endpoints
 
-### Member endpoints (sign in as member first)
+### Public (no auth)
 
 ```
-GET  http://localhost:3000/api/membership
-GET  http://localhost:3000/api/attendance
-POST http://localhost:3000/api/membership/cancel
+GET  /api/staff
+GET  /api/sponsors
+GET  /api/events
+GET  /api/events?all=true
+POST /api/contact  { "firstName":"A","lastName":"B","email":"a@b.com","message":"Hi" }
 ```
 
-### Admin endpoints (sign in as admin first)
+### Member session
 
 ```
-GET  http://localhost:3000/api/admin/members
-GET  http://localhost:3000/api/admin/members?status=ACTIVE
-
-POST http://localhost:3000/api/admin/attendance
-Body (JSON):
-{
-  "userId": "<member-id-from-admin/members>",
-  "date": "2026-03-20",
-  "eventName": "Test Event",
-  "points": 15
-}
+GET  /api/membership
+GET  /api/attendance
+POST /api/membership/cancel  {}
 ```
 
-### Public endpoints (no auth needed)
+### Admin session — Members
 
 ```
-GET  http://localhost:3000/api/staff
-GET  http://localhost:3000/api/sponsors
-
-POST http://localhost:3000/api/contact
-Body (JSON):
-{
-  "firstName": "Alice",
-  "lastName": "Smith",
-  "email": "alice@example.com",
-  "message": "Test message"
-}
+GET    /api/admin/members
+GET    /api/admin/members?status=ACTIVE
+PATCH  /api/admin/members   { "id":"<uuid>", "name":"New Name" }
+PATCH  /api/admin/members   { "id":"<uuid>", "revokeAccess": true }
+DELETE /api/admin/members?id=<uuid>
 ```
 
-### Auth error cases (confirm correct status codes)
+### Admin session — Events
 
 ```
-GET  http://localhost:3000/api/membership        → 401 (no session)
-GET  http://localhost:3000/api/admin/members     → 403 (member session, not admin)
-POST http://localhost:3000/api/admin/attendance  → 403 (member session, not admin)
+GET    /api/admin/events
+POST   /api/admin/events   { "title":"Meeting","eventDate":"2026-05-01T18:00:00Z","pointsValue":1 }
+PATCH  /api/admin/events   { "id":"<id>","pointsValue":2 }
+DELETE /api/admin/events?id=<id>
+```
+
+### Admin session — Attendance
+
+```
+GET    /api/admin/attendance?userId=<uuid>
+POST   /api/admin/attendance   { "userId":"<uuid>","date":"2026-04-09T18:00:00Z","eventName":"Meeting","points":1 }
+PATCH  /api/admin/attendance   { "id":"<uuid>","points":3 }
+DELETE /api/admin/attendance?id=<uuid>
+```
+
+### Auth error cases
+
+```
+GET  /api/membership      (no session) → 401
+GET  /api/admin/members   (member session) → 403
 ```
 
 ---
 
-## Step 6 — Registration Flow (manual)
+## Step 6 — Forms Webhook (local)
 
 ```bash
-# 1. Create a pending user and get a token
-curl -X POST http://localhost:3000/api/dev/seed
-
-# 2. In the backend terminal, watch for the token logged when checkout.session.completed fires.
-#    In stub mode you can create one manually:
-curl -X POST http://localhost:3000/api/auth/register \
+# Matched user
+curl -X POST http://localhost:3000/api/webhooks/forms \
   -H "Content-Type: application/json" \
-  -d '{"token":"bad-token","name":"Alice","password":"pass1234"}'
-# → 400 (expected — token doesn't exist)
+  -H "Authorization: Bearer test-forms-secret" \
+  -d '{"email":"member@test.com","event_name":"Meeting","event_date":"2026-04-09T18:00:00Z"}'
+# → { "success": true, "matched": true }
 
-# To get a real token: trigger a Stripe test webhook (see api-webhooks.md)
-# The token will appear in the backend terminal as:
-# [EMAIL STUB] To: ... | Subject: Welcome — complete your registration
+# Unmatched email — still 200 to prevent retry loops
+curl -X POST http://localhost:3000/api/webhooks/forms \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer test-forms-secret" \
+  -d '{"email":"nobody@unknown.com","event_date":"2026-04-09T18:00:00Z"}'
+# → { "success": true, "matched": false }
+
+# Verify points incremented
+GET /api/attendance  (with member session)
 ```
 
 ---
 
-## Postman Collection Setup (recommended)
+## Step 7 — Registration Flow
 
-1. Create a collection variable `baseUrl = http://localhost:3000`
-2. Add a **Pre-request Script** on the collection level (runs before every request):
-   - Nothing needed — Postman's cookie jar handles the session automatically.
-3. Create a folder "Auth" with the CSRF + signin requests.
-4. Create folders "Member", "Admin", "Public" with the endpoint requests above.
+```bash
+# With no email service configured, tokens are logged to the backend terminal.
+# Look for: [EMAIL STUB] To: ... | Subject: Welcome
+
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"token":"<uuid-from-log>","name":"Alice Smith","password":"Password1!"}'
+# → 200 { id, email, name, role }
+```
 
 ---
 
 ## Troubleshooting
 
 | Problem | Fix |
-|---------|-----|
-| `401` on membership/attendance | Re-run the signin request (step 4b); session may have expired |
-| `403` on admin endpoints | Sign in as `admin@test.com`, not member |
-| Membership returns 404 | Re-run seed — server was restarted, stubs reset |
-| Login fails with 200 but no cookie | Ensure body is `x-www-form-urlencoded`, not JSON |
-| `NEXTAUTH_SECRET` error | Check `.env.local` exists with the value set |
+|---|---|
+| 401 on membership/attendance | Re-run signin (step 4b) — session expired |
+| 403 on admin endpoints | Sign in as `admin@test.com` |
+| 404 on membership | Re-run seed — server restarted, stubs reset |
+| Login succeeds but no cookie | Body must be `x-www-form-urlencoded`, not JSON |
+| `NEXTAUTH_SECRET` error | Verify `.env.local` exists with the value set |
+| Forms webhook 500 | `FORMS_WEBHOOK_SECRET` not set in `.env.local` |

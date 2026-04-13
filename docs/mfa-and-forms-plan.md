@@ -1,6 +1,6 @@
 # MFA and Forms-Based Attendance — Planning Doc
 
-Two features planned for future implementation. No code has been written yet.
+**Status:** Forms-based attendance is **fully implemented** (see `app/api/webhooks/forms/route.ts` and `docs/api-webhooks.md` for the complete reference). MFA is planned but not yet built.
 
 ---
 
@@ -98,9 +98,9 @@ Add `totp_secret varchar` to the `users` table (or create a separate `user_mfa` 
 
 ---
 
-## Feature 2: Attendance Points from Microsoft / Google Forms
+## Feature 2: Attendance Points from Microsoft / Google Forms ✅ IMPLEMENTED
 
-Currently points are created manually by admins via `POST /api/admin/attendance`. This feature auto-creates attendance records when a form is submitted.
+Points are auto-created when a Google/Microsoft Forms response is submitted. See `docs/api-webhooks.md#post-apiwebhooksforms` for the full reference and setup instructions.
 
 ### Integration Strategy: Webhook (recommended)
 

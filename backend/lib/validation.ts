@@ -41,6 +41,55 @@ export const sponsorSchema = z.object({
   endDate: z.string().datetime('Invalid end date format').optional()
 })
 
+// Admin attendance update validation schema
+export const updateAttendanceSchema = z.object({
+  id: z.string().uuid('Invalid attendance ID'),
+  points: z.number().int('Points must be an integer').min(0).max(100).optional(),
+  eventName: z.string().max(200, 'Event name too long').optional(),
+  date: z.string().datetime('Invalid date format').optional(),
+})
+
+// Google/Microsoft Forms webhook payload schema
+export const formsWebhookSchema = z.object({
+  email: z.string().email('Invalid email'),
+  event_name: z.string().max(200, 'Event name too long').optional(),
+  event_date: z.string().datetime('Invalid date format').refine(
+    (d) => {
+      const date = new Date(d)
+      const now = new Date()
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+      return date <= now && date >= thirtyDaysAgo
+    },
+    'Date must be within the past 30 days and not in the future'
+  ),
+  points: z.number().int('Points must be an integer').min(1).max(100).optional(),
+})
+
+// Event creation validation schema
+export const createEventSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
+  description: z.string().max(2000, 'Description too long').optional(),
+  eventDate: z.string().datetime('Invalid date format'),
+  pointsValue: z.number().int('Points must be an integer').min(0).max(100),
+})
+
+// Event update validation schema
+export const updateEventSchema = z.object({
+  id: z.string(),
+  title: z.string().min(1, 'Title is required').max(200, 'Title too long').optional(),
+  description: z.string().max(2000, 'Description too long').optional(),
+  eventDate: z.string().datetime('Invalid date format').optional(),
+  pointsValue: z.number().int('Points must be an integer').min(0).max(100).optional(),
+})
+
+// Admin member update/revoke validation schema
+export const updateMemberSchema = z.object({
+  id: z.string().uuid('Invalid member ID'),
+  name: z.string().min(1, 'Name is required').max(100, 'Name too long').optional(),
+  role: z.enum(['MEMBER', 'ADMIN'], { error: 'Role must be MEMBER or ADMIN' }).optional(),
+  revokeAccess: z.boolean().optional(),
+})
+
 // Validation helper function
 export function validateRequest<T>(schema: z.ZodSchema<T>, data: unknown): T {
   try {

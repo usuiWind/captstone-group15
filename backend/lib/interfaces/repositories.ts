@@ -1,4 +1,4 @@
-import { User, Membership, Attendance, StaffMember, Sponsor, VerificationToken, CreateUserInput, CreateMembershipInput, CreateAttendanceInput, CreateStaffInput, CreateSponsorInput } from './models'
+import { User, Membership, Attendance, ClubEvent, StaffMember, Sponsor, VerificationToken, CreateUserInput, CreateMembershipInput, CreateAttendanceInput, CreateEventInput, CreateStaffInput, CreateSponsorInput } from './models'
 
 export interface IUserRepository {
   findByEmail(email: string): Promise<User | null>
@@ -24,6 +24,16 @@ export interface IAttendanceRepository {
   findByUserId(userId: string): Promise<Attendance[]>
   getTotalPoints(userId: string): Promise<number>
   create(data: CreateAttendanceInput): Promise<Attendance>
+  update(id: string, data: Partial<Pick<Attendance, 'points' | 'eventName' | 'date'>>): Promise<Attendance>
+  delete(id: string): Promise<void>
+}
+
+export interface IEventRepository {
+  findAll(): Promise<ClubEvent[]>
+  findUpcoming(): Promise<ClubEvent[]>
+  findById(id: string): Promise<ClubEvent | null>
+  create(data: CreateEventInput): Promise<ClubEvent>
+  update(id: string, data: Partial<Pick<ClubEvent, 'title' | 'description' | 'eventDate' | 'pointsValue'>>): Promise<ClubEvent>
   delete(id: string): Promise<void>
 }
 

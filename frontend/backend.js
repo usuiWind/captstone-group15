@@ -40,6 +40,32 @@ export async function postJson(path, body) {
   return data
 }
 
+export async function patchJson(path, body) {
+  const res = await fetch(backendUrl(path), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    credentials: 'include',
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) {
+    throw new Error(data?.error || data?.message || 'Request failed')
+  }
+  return data
+}
+
+export async function deleteJson(path) {
+  const res = await fetch(backendUrl(path), {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) {
+    throw new Error(data?.error || data?.message || 'Request failed')
+  }
+  return data
+}
+
 /** POST with application/x-www-form-urlencoded (NextAuth credentials sign-in). */
 export async function postForm(path, params) {
   const res = await fetch(backendUrl(path), {

@@ -65,6 +65,10 @@ export const reactivateSubscription = async (subscriptionId: string) => {
   })
 }
 
+export const cancelSubscriptionImmediately = async (subscriptionId: string) => {
+  return await getStripe().subscriptions.cancel(subscriptionId)
+}
+
 export const constructWebhookEvent = (payload: string | Buffer, signature: string) => {
   const secret = process.env.STRIPE_WEBHOOK_SECRET
   if (!secret) {

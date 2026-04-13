@@ -13,13 +13,11 @@ export class AttendanceService {
     return await repositories.attendance.create(data)
   }
 
-  async deleteAttendance(id: string): Promise<void> {
-    await repositories.attendance.delete(id)
+  async updateAttendance(id: string, data: Partial<Pick<Attendance, 'points' | 'eventName' | 'date'>>): Promise<Attendance> {
+    return await repositories.attendance.update(id, data)
   }
 
-  async getAllAttendance(): Promise<Attendance[]> {
-    // This would need to be implemented in the repository
-    // For now, return empty array
-    return []
+  async deleteAttendance(id: string): Promise<void> {
+    await repositories.attendance.delete(id)
   }
 }
