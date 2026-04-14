@@ -1,6 +1,6 @@
 # MFA and Forms-Based Attendance — Planning Doc
 
-**Status:** Forms-based attendance is **fully implemented** (see `app/api/webhooks/forms/route.ts` and `docs/api-webhooks.md` for the complete reference). MFA is planned but not yet built.
+**Status:** Forms-based attendance is **fully implemented** (see `app/api/webhooks/forms/route.ts` and `docs/api-webhooks.md` for the complete reference). Email OTP MFA for admin accounts is **fully implemented** (see below). TOTP (Option B) is not built.
 
 ---
 
@@ -10,52 +10,67 @@ Two options below, ranked by implementation complexity. Both integrate with the 
 
 ---
 
-### Option A — Email OTP (simpler, recommended first)
+### Option A — Email OTP ✅ IMPLEMENTED (admin accounts only)
 
-**What it is.** After a correct password, generate a 6-digit code, email it via Resend (already configured), and require it before NextAuth issues the JWT. Two-step login UX on the frontend.
+**Scope note:** The implementation targets admin accounts exclusively. Member accounts sign in with password only, unchanged.
 
-**New DB table needed**
+**What was built.** After a correct password, a 6-digit OTP is generated, bcrypt-hashed (cost 8), stored in `admin_otp_codes`, and emailed via Resend. The JWT is only issued after the code is validated. Member accounts are unaffected.
+
+**DB table**
 
 ```sql
-mfa_codes (
-  id          uuid primary key,
-  user_id     uuid references users(id),
-  code        varchar(6),
-  expires_at  timestamptz,
-  created_at  timestamptz
+admin_otp_codes (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  code_hash   text not null,         -- bcrypt hash of the 6-digit code
+  expires_at  timestamptz not null,  -- 10 minutes from creation
+  used        boolean not null default false,
+  created_at  timestamptz default now()
 )
 ```
 
-Nearly identical shape to `verification_tokens` — the repository implementation can follow the same pattern.
+Index on `(user_id, expires_at)` for fast lookup.
 
-**New env vars:** None. Resend + `FROM_EMAIL` are already wired.
+**Files added / changed**
 
-**Files to change**
-
-| File | What changes |
+| File | What changed |
 |---|---|
-| `lib/auth.ts` | Add `otpCode` to `credentials` declaration; after password check, look up + validate code before returning user |
-| `lib/validation.ts` | Add `sendOtpSchema` (email + password) and `verifyOtpSchema` (email + password + 6-digit code) |
-| `lib/email.ts` | Add `emailService.sendOtpCode(to, code)` method and template |
-| `lib/interfaces/models.ts` | Add `MfaCode` model and `CreateMfaCodeInput` |
-| `lib/interfaces/repositories.ts` | Add `IMfaCodeRepository` with `create`, `findByUserId`, `delete` |
-| `lib/container.ts` | Register the new repository |
-| New: `app/api/auth/mfa/send-otp/route.ts` | Step-1 endpoint — validates password, sends OTP, returns no session data |
-| New: `lib/repositories/supabase/mfaCodeRepository.ts` | Supabase implementation |
-| New: `lib/repositories/stubs/mfaCodeRepositoryStub.ts` | In-memory stub for dev |
+| `backend/supabase/additional_tables.sql` | Added `admin_otp_codes` table + index |
+| `lib/interfaces/models.ts` | Added `AdminOtpCode`, `CreateAdminOtpInput` |
+| `lib/interfaces/repositories.ts` | Added `IAdminOtpRepository` |
+| `lib/repositories/supabase/otpRepository.ts` | New Supabase implementation |
+| `lib/repositories/stubs/otpRepositoryStub.ts` | New in-memory stub |
+| `lib/repositories/supabase/index.ts` | Exports `otpRepositorySupabase` |
+| `lib/repositories/stubs/index.ts` | Exports `otpRepositoryStub` |
+| `lib/container.ts` | Registers `otp` repository |
+| `lib/email.ts` | Added `sendAdminOtpEmail(to, otp)` |
+| `lib/auth.ts` | Extended `CredentialsProvider` with `otp` field; admins require valid OTP |
+| `app/api/auth/admin/send-otp/route.ts` | New endpoint — validates credentials, sends OTP, constant-time response |
+| `frontend/src/api/services/authService.js` | Added `requestAdminOtp()`, updated `signIn()` to accept `otp` |
+| `frontend/src/pages/LoginPage.jsx` | Two-step admin login flow with OTP input, Resend, and Back controls |
 
-**Why the two-endpoint split matters.** NextAuth's `CredentialsProvider` has no "pending" session state — it either returns a user (JWT issued) or `null` (rejected). The step-1 endpoint validates the password but returns no session. Only the second call to `authorize` (with `otpCode` present) completes the JWT.
+**How to test locally:** See `docs/local-testing.md` step 4b-admin. OTP codes are printed to the backend terminal when `RESEND_API_KEY` is not set.
+
+**New env vars:** None required. Uses existing `RESEND_API_KEY` + `FROM_EMAIL`.
+
+**Differences from original plan**
+- Table is named `admin_otp_codes` (not `mfa_codes`) and scoped to admins
+- Code is stored as a bcrypt hash (`code_hash`), not plaintext
+- Step-1 endpoint is at `app/api/auth/admin/send-otp` (not `app/api/auth/mfa/send-otp`)
+- Repository interface is `IAdminOtpRepository` (not `IMfaCodeRepository`)
+- `findLatestForUser` replaces `findByUserId` — returns the newest valid, unused code
 
 **Pros**
 - No new npm dependencies
 - Reuses existing Resend, `verification_tokens` pattern, and `emailService`
 - Zero changes to JWT callbacks
 - Degrades gracefully in stub mode (console.log email fallback already works)
+- Constant-time `send-otp` response prevents user enumeration
 
 **Cons**
 - Email delivery adds latency at login time
 - Compromised inbox defeats both factors simultaneously (email is also the account recovery path)
-- Requires a two-step login UX on the frontend
+- Requires a two-step login UX on the frontend (implemented)
 
 ---
 

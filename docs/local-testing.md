@@ -15,7 +15,11 @@ FORMS_WEBHOOK_SECRET=test-forms-secret
 FORMS_DEFAULT_POINTS=1
 ```
 
-Leave `SUPABASE_URL` unset. The app uses in-memory stubs automatically.
+Leave `SUPABASE_URL` unset — the app uses in-memory stubs automatically.
+
+Leave `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` unset — rate limiting falls back to an ephemeral in-process store (same behaviour as before, sufficient for local dev).
+
+Leave `RESEND_API_KEY` unset — emails (including admin OTP codes) are printed to the backend terminal as `[EMAIL STUB]` lines instead of being delivered.
 
 ---
 
@@ -74,7 +78,46 @@ GET http://localhost:3000/api/auth/csrf
 { "csrfToken": "abc123..." }
 ```
 
-### 4b. Sign In
+### 4b. Sign In — Member (no OTP required)
+
+```
+POST http://localhost:3000/api/auth/callback/credentials
+Body: x-www-form-urlencoded
+```
+
+| Key | Value |
+|---|---|
+| `email` | `member@test.com` |
+| `password` | `Member1234!` |
+| `csrfToken` | (from 4a) |
+| `redirect` | `false` |
+| `json` | `true` |
+
+Postman stores `next-auth.session-token` automatically.
+
+### 4b-admin. Sign In — Admin (two-step OTP)
+
+Admin accounts require an email OTP as a second factor.
+
+**Step 1 — request the code**
+
+```
+POST http://localhost:3000/api/auth/admin/send-otp
+Body: JSON
+{ "email": "admin@test.com", "password": "Admin1234!" }
+```
+
+→ `200 { "sent": true }`
+
+Since `RESEND_API_KEY` is not set locally, the 6-digit code is printed to the **backend terminal**:
+
+```
+[EMAIL STUB] To: admin@test.com | Subject: FITP Admin Sign-In Code
+```
+
+The code also appears in the HTML body logged after it. Copy the 6 digits.
+
+**Step 2 — sign in with OTP**
 
 ```
 POST http://localhost:3000/api/auth/callback/credentials
@@ -85,11 +128,14 @@ Body: x-www-form-urlencoded
 |---|---|
 | `email` | `admin@test.com` |
 | `password` | `Admin1234!` |
-| `csrfToken` | (from 4a) |
+| `otp` | `<6-digit code from terminal>` |
+| `csrfToken` | (from 4a — re-fetch if needed) |
 | `redirect` | `false` |
 | `json` | `true` |
 
-Postman stores `next-auth.session-token` automatically. Repeat with `member@test.com` for a member session.
+→ 200, `next-auth.session-token` set with ADMIN role.
+
+The OTP expires after **10 minutes** and can only be used once. Request a new code by repeating Step 1.
 
 ### 4c. Verify Session
 
@@ -204,9 +250,13 @@ curl -X POST http://localhost:3000/api/auth/register \
 
 | Problem | Fix |
 |---|---|
-| 401 on membership/attendance | Re-run signin (step 4b) — session expired |
-| 403 on admin endpoints | Sign in as `admin@test.com` |
+| 401 on membership/attendance | Re-run signin (step 4b/4b-admin) — session expired |
+| 403 on admin endpoints | Sign in as `admin@test.com` using the two-step OTP flow |
 | 404 on membership | Re-run seed — server restarted, stubs reset |
 | Login succeeds but no cookie | Body must be `x-www-form-urlencoded`, not JSON |
 | `NEXTAUTH_SECRET` error | Verify `.env.local` exists with the value set |
 | Forms webhook 500 | `FORMS_WEBHOOK_SECRET` not set in `.env.local` |
+| Admin sign-in returns `OTP_REQUIRED` error | You submitted step 2 without an `otp` field — include the code from the terminal |
+| Admin sign-in returns `OTP_INVALID` error | Code is wrong, expired (>10 min), or already used — request a new one via `POST /api/auth/admin/send-otp` |
+| OTP code not visible in terminal | Ensure no `RESEND_API_KEY` is set; the stub logs to stdout, not a file |
+| `send-otp` returns `429` | Rate limit hit (5 per 15 min per IP) — wait before retrying |

@@ -24,6 +24,22 @@ export async function POST(request: NextRequest) {
 
     const event = constructWebhookEvent(body, signature)
 
+    // Idempotency guard — skip events we have already processed.
+    // Only active in production (SUPABASE_URL present); dev has no real Stripe.
+    if (process.env.SUPABASE_URL) {
+      const { supabaseAdmin } = await import('@/lib/supabase')
+      const { data: existing } = await supabaseAdmin
+        .from('processed_stripe_events')
+        .select('event_id')
+        .eq('event_id', event.id)
+        .maybeSingle()
+
+      if (existing) {
+        console.log(`[STRIPE] Duplicate event skipped: ${event.id}`)
+        return NextResponse.json({ success: true })
+      }
+    }
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as any
@@ -94,6 +110,16 @@ export async function POST(request: NextRequest) {
       
       default:
         console.log(`Unhandled event type: ${event.type}`)
+    }
+
+    // Record event ID so any Stripe retry is a no-op.
+    // upsert with ignoreDuplicates is INSERT … ON CONFLICT DO NOTHING —
+    // safe if two serverless invocations race on the same event.
+    if (process.env.SUPABASE_URL) {
+      const { supabaseAdmin } = await import('@/lib/supabase')
+      await supabaseAdmin
+        .from('processed_stripe_events')
+        .upsert({ event_id: event.id }, { onConflict: 'event_id', ignoreDuplicates: true })
     }
 
     return NextResponse.json({ success: true })

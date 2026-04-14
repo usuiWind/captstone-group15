@@ -69,6 +69,40 @@ CREATE TABLE IF NOT EXISTS public.sponsors (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ─── Processed Stripe events (idempotency deduplication) ────────────────────
+-- Stores every Stripe event ID that has been fully processed.
+-- Before processing any event the webhook handler checks this table.
+-- If the ID already exists it returns 200 immediately without re-processing.
+CREATE TABLE IF NOT EXISTS public.processed_stripe_events (
+  event_id     TEXT        PRIMARY KEY,
+  processed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ─── Unique constraints on memberships (defense-in-depth) ────────────────────
+-- Prevent duplicate membership rows from a retried webhook even if the
+-- deduplication check above somehow races.  Partial indexes skip NULL values
+-- so members without a subscription yet are unaffected.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_memberships_stripe_sub
+  ON public.memberships(stripe_payment_id)
+  WHERE stripe_payment_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_memberships_stripe_customer
+  ON public.memberships(stripe_customer_id)
+  WHERE stripe_customer_id IS NOT NULL;
+
+-- ─── Admin OTP codes (email-based second factor for admin login) ─────────────
+-- A fresh code is generated each time an admin attempts to sign in.
+-- Codes are hashed with bcrypt before storage; raw codes are never persisted.
+CREATE TABLE IF NOT EXISTS public.admin_otp_codes (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  code_hash   TEXT        NOT NULL,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  used        BOOLEAN     NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_admin_otp_user ON public.admin_otp_codes(user_id, expires_at);
+
 -- ─── Unmatched form submissions (Google/Microsoft Forms webhook fallback) ──────
 -- Rows land here when a form submission email doesn't match any registered user.
 -- Admins review and reconcile manually.

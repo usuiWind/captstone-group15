@@ -68,6 +68,70 @@ curl http://localhost:3000/api/admin/attendance?userId=00000000-0000-0000-0000-0
 
 ---
 
+## 4b. Admin OTP Flow
+
+Admin sign-in is now a two-step process. Test end-to-end:
+
+**Step 1 — request OTP**
+```bash
+curl -X POST http://localhost:3000/api/auth/admin/send-otp \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@test.com","password":"Admin1234!"}'
+# → 200 { "sent": true }
+# In dev (no RESEND_API_KEY), OTP is printed to the backend terminal:
+# [EMAIL STUB] To: admin@test.com | Subject: FITP Admin Sign-In Code
+```
+
+Read the 6-digit code from the terminal output.
+
+**Step 2 — sign in with OTP (Postman)**
+
+```
+POST http://localhost:3000/api/auth/callback/credentials
+Body: x-www-form-urlencoded
+```
+
+| Key | Value |
+|---|---|
+| `email` | `admin@test.com` |
+| `password` | `Admin1234!` |
+| `otp` | `<6-digit code from terminal>` |
+| `csrfToken` | (from `GET /api/auth/csrf`) |
+| `redirect` | `false` |
+| `json` | `true` |
+
+→ 200, `next-auth.session-token` cookie set.
+
+**Error cases**
+
+```bash
+# Wrong OTP
+# Submit step 2 with otp=000000 → NextAuth redirects to /login?error=OTP_INVALID
+
+# No OTP submitted (admin, password only)
+# Submit step 2 without otp field → /login?error=OTP_REQUIRED
+
+# Member account — OTP not required
+# Submit step 1 with member@test.com / Member1234! → still returns { "sent": true }
+# (constant-time response, no email sent for non-admin)
+# Sign in via /api/auth/callback/credentials without otp field → succeeds normally
+```
+
+**Rate limit (OTP endpoint)**
+
+```bash
+# Hit send-otp 6 times in quick succession from the same IP:
+for i in $(seq 1 6); do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -X POST http://localhost:3000/api/auth/admin/send-otp \
+    -H "Content-Type: application/json" \
+    -d '{"email":"admin@test.com","password":"Admin1234!"}'; 
+done
+# First 5 → 200, 6th → 429
+```
+
+---
+
 ## 5. Admin Endpoints (Postman, with admin session)
 
 See `local-testing.md` steps 4a–4b to obtain an admin session cookie.
@@ -216,7 +280,40 @@ curl -X POST http://localhost:3000/api/auth/register \
 
 ---
 
-## 9. Build Check
+## 9. Rate Limiter (Redis / Upstash)
+
+In local dev (no `UPSTASH_REDIS_REST_URL`), the limiter uses an ephemeral in-process `Map` — behaviour is identical to the old implementation.
+
+**To test with a real Redis store locally:**
+1. Create a free database at [console.upstash.com](https://console.upstash.com) (takes ~1 min).
+2. Add to `backend/.env.local`:
+   ```env
+   UPSTASH_REDIS_REST_URL=https://<your-db>.upstash.io
+   UPSTASH_REDIS_REST_TOKEN=<your-token>
+   ```
+3. Restart the backend, then hit a rate-limited endpoint 6 times rapidly:
+   ```bash
+   for i in $(seq 1 6); do
+     curl -s -o /dev/null -w "%{http_code}\n" \
+       -X POST http://localhost:3000/api/auth/admin/send-otp \
+       -H "Content-Type: application/json" \
+       -d '{"email":"admin@test.com","password":"Admin1234!"}';
+   done
+   # → 200 200 200 200 200 429
+   ```
+4. Restart the backend. Hit the same endpoint again — the counter persists in Redis (unlike the old in-memory store).
+
+**Unit tests**
+
+```bash
+cd backend && npm test
+```
+
+Rate limiter tests are in `__tests__/rateLimit.test.ts`. They run against the ephemeral in-process store (no env vars needed).
+
+---
+
+## 10. Build Check
 
 ```bash
 cd backend && npm run build
@@ -227,7 +324,7 @@ Both should produce zero TypeScript / build errors. If build errors appear in `m
 
 ---
 
-## 10. Access Control (browser)
+## 11. Access Control (browser)
 
 | URL | Session | Expected |
 |---|---|---|

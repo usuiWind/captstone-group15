@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { UserService } from '@/lib/services/userService'
-import { authRateLimit, getClientIdentifier } from '@/lib/rateLimit'
+import { authRateLimitAsync, getClientIdentifier } from '@/lib/rateLimit'
 import { validateRequest, registerSchema } from '@/lib/validation'
 import { createSecureResponse, createSecureErrorResponse } from '@/lib/security'
 
@@ -10,8 +10,8 @@ export async function POST(request: NextRequest) {
   try {
     // Rate limiting
     const clientId = getClientIdentifier(request)
-    const rateLimitResult = authRateLimit(clientId)
-    
+    const rateLimitResult = await authRateLimitAsync(clientId)
+
     if (!rateLimitResult.allowed) {
       const response = createSecureErrorResponse(
         'Too many registration attempts. Please try again later.',

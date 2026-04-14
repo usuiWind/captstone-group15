@@ -79,6 +79,21 @@ export interface VerificationToken {
   expires: Date
 }
 
+export interface AdminOtpCode {
+  id: string
+  userId: string
+  codeHash: string
+  expiresAt: Date
+  used: boolean
+  createdAt: Date
+}
+
+export interface CreateAdminOtpInput {
+  userId: string
+  codeHash: string
+  expiresAt: Date
+}
+
 // Input types for creation
 export interface CreateUserInput {
   email: string

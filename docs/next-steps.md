@@ -28,25 +28,29 @@ Priority order. Completed items are marked.
 
 ---
 
-## P2 — Rate limiter migration (required before public launch)
+## P2 — Rate limiter migration DONE
 
-Replace `lib/rateLimit.ts` in-memory store with Upstash Redis. The current implementation provides no protection on Vercel serverless.
+`lib/rateLimit.ts` has been rewritten to use `@upstash/ratelimit` with a sliding-window algorithm backed by Upstash Redis. The implementation falls back to an ephemeral in-process `Map` when `UPSTASH_REDIS_REST_URL` is not set (dev/test — no account needed).
 
-1. `npm install @upstash/ratelimit @upstash/redis` in backend.
-2. Create Redis database at upstash.com.
-3. Rewrite `lib/rateLimit.ts` to use `@upstash/ratelimit`. Exported signatures stay the same (`authRateLimit`, `generalRateLimit`, `adminRateLimit`, `getClientIdentifier`).
-4. Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
+**To activate in production:**
+1. Create a free Redis database at [console.upstash.com](https://console.upstash.com).
+2. Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in Vercel environment variables.
 
-See `docs/deployment.md` for full steps.
+All call sites now use `authRateLimitAsync` / `generalRateLimitAsync` (async). The old synchronous `createRateLimit` export is replaced by `createRateLimitAsync` (used in tests).
 
 ---
 
-## P3 — Stripe webhook idempotency
+## P3 — Stripe webhook idempotency DONE
 
-Guard against duplicate `checkout.session.completed` events in `app/api/webhooks/stripe/route.ts`:
-- Check `repositories.user.findByEmail` before creating a user
-- Check `findByStripeCustomerId` before creating a membership
-- Estimated: 20 min
+`app/api/webhooks/stripe/route.ts` now deduplicates on Stripe's event ID:
+
+1. **Pre-check:** after signature validation, look up `event.id` in the new `processed_stripe_events` table. If found, return 200 immediately — no business logic runs.
+2. **Post-write:** after the `switch` block succeeds, upsert `event.id` into the table (`ON CONFLICT DO NOTHING`) so concurrent races are safe.
+3. **DB-level safety net:** `UNIQUE` partial indexes on `memberships(stripe_payment_id)` and `memberships(stripe_customer_id)` prevent duplicate rows even if the check-then-act sequence somehow races.
+
+Both guards are skipped when `SUPABASE_URL` is not set (local dev — no real Stripe present).
+
+**Required:** run the updated `backend/supabase/additional_tables.sql` in the Supabase SQL editor to create the `processed_stripe_events` table and the two new indexes.
 
 ---
 
@@ -65,16 +69,11 @@ Replace `unsafe-inline` in `Content-Security-Policy` with a per-request nonce.
 
 ---
 
-## P6 — MFA (optional, post-launch)
-
-See `docs/mfa-and-forms-plan.md` for two implementation options:
-- Option A: Email OTP — no new dependencies, uses existing Resend
-- Option B: TOTP Authenticator App — requires `otplib` and `MFA_ENCRYPTION_KEY`
-
----
-
 ## Completed Features
 
+- **Stripe webhook idempotency** — `processed_stripe_events` table deduplicates on Stripe event ID; `UNIQUE` indexes on `stripe_payment_id` / `stripe_customer_id` as a DB-level safety net.
+- **Admin email OTP (MFA)** — Two-step login for admin accounts. Password → 6-digit code emailed via Resend → JWT issued. Code is bcrypt-hashed before storage, expires in 10 min, single-use. Member accounts are unaffected.
+- **Redis rate limiting** — Replaced in-memory store with Upstash Redis sliding-window limiter. Works correctly across Vercel serverless invocations. Ephemeral fallback for local dev.
 - Admin member PATCH (role, name, revoke) and DELETE (Stripe cancel + user delete)
 - Attendance PATCH and DELETE with point_transactions cascade
 - Events system: `events` table, full repository (stub + Supabase), admin CRUD API, public GET

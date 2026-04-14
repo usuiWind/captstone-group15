@@ -5,7 +5,8 @@ import {
   IEventRepository,
   IStaffRepository,
   ISponsorRepository,
-  IVerificationTokenRepository
+  IVerificationTokenRepository,
+  IAdminOtpRepository,
 } from './interfaces/repositories'
 
 import {
@@ -15,7 +16,8 @@ import {
   eventRepositoryStub,
   staffRepositoryStub,
   sponsorRepositoryStub,
-  verificationTokenRepositoryStub
+  verificationTokenRepositoryStub,
+  otpRepositoryStub,
 } from './repositories/stubs'
 
 // Swap to Supabase repositories when SUPABASE_URL is configured.
@@ -29,6 +31,7 @@ function buildRepositories() {
       verificationTokenRepositorySupabase,
       staffRepositorySupabase,
       sponsorRepositorySupabase,
+      otpRepositorySupabase,
     } = require('./repositories/supabase')
 
     return {
@@ -39,6 +42,7 @@ function buildRepositories() {
       staff: staffRepositorySupabase as IStaffRepository,
       sponsor: sponsorRepositorySupabase as ISponsorRepository,
       verificationToken: verificationTokenRepositorySupabase as IVerificationTokenRepository,
+      otp: otpRepositorySupabase as IAdminOtpRepository,
     }
   }
 
@@ -51,6 +55,7 @@ function buildRepositories() {
     staff: staffRepositoryStub as IStaffRepository,
     sponsor: sponsorRepositoryStub as ISponsorRepository,
     verificationToken: verificationTokenRepositoryStub as IVerificationTokenRepository,
+    otp: otpRepositoryStub as IAdminOtpRepository,
   }
 }
 

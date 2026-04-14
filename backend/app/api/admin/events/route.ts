@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { repositories } from '@/lib/container'
 import { validateRequest, createEventSchema, updateEventSchema } from '@/lib/validation'
-import { generalRateLimit, getClientIdentifier } from '@/lib/rateLimit'
+import { generalRateLimitAsync, getClientIdentifier } from '@/lib/rateLimit'
 import { z } from 'zod'
 
 export const maxDuration = 30
@@ -20,7 +20,7 @@ async function requireAdmin() {
 // GET /api/admin/events — list all events
 export async function GET(request: NextRequest) {
   const clientId = getClientIdentifier(request)
-  const limit = generalRateLimit(clientId)
+  const limit = await generalRateLimitAsync(clientId)
   if (!limit.allowed) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/events — create a new event
 export async function POST(request: NextRequest) {
   const clientId = getClientIdentifier(request)
-  const limit = generalRateLimit(clientId)
+  const limit = await generalRateLimitAsync(clientId)
   if (!limit.allowed) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 // PATCH /api/admin/events — update an event
 export async function PATCH(request: NextRequest) {
   const clientId = getClientIdentifier(request)
-  const limit = generalRateLimit(clientId)
+  const limit = await generalRateLimitAsync(clientId)
   if (!limit.allowed) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
@@ -108,7 +108,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE /api/admin/events?id=<id> — delete an event
 export async function DELETE(request: NextRequest) {
   const clientId = getClientIdentifier(request)
-  const limit = generalRateLimit(clientId)
+  const limit = await generalRateLimitAsync(clientId)
   if (!limit.allowed) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }

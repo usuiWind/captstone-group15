@@ -129,6 +129,29 @@ export const emailService = {
     await sendEmail(to, "FITP Membership Cancelled", html);
   },
 
+  async sendAdminOtpEmail(to: string, otp: string): Promise<void> {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #03082e;">Admin Sign-In Code</h1>
+        <p>Use the code below to complete your FITP admin sign-in. It expires in <strong>10 minutes</strong>.</p>
+        <div style="background: #f3f4f6; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: center;">
+          <span style="font-family: 'Courier New', monospace; font-size: 2.4rem; font-weight: 700; letter-spacing: 10px; color: #03082e;">
+            ${otp}
+          </span>
+        </div>
+        <p style="color: #6b7280; font-size: 14px;">
+          If you did not attempt to sign in, your account credentials may be compromised.
+          Please contact <a href="mailto:support@fitpuh.org">support@fitpuh.org</a> immediately.
+        </p>
+        <hr style="margin: 24px 0;" />
+        <p style="color: #9ca3af; font-size: 12px;">
+          FITP Admin Portal — ${PORTAL_URL}
+        </p>
+      </div>
+    `
+    await sendEmail(to, 'FITP Admin Sign-In Code', html)
+  },
+
   async sendSubscriptionUpdatedEmail(to: string, newPlanName: string): Promise<void> {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">

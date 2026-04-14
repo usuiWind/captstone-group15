@@ -1,4 +1,4 @@
-import { User, Membership, Attendance, ClubEvent, StaffMember, Sponsor, VerificationToken, CreateUserInput, CreateMembershipInput, CreateAttendanceInput, CreateEventInput, CreateStaffInput, CreateSponsorInput } from './models'
+import { User, Membership, Attendance, ClubEvent, StaffMember, Sponsor, VerificationToken, AdminOtpCode, CreateAdminOtpInput, CreateUserInput, CreateMembershipInput, CreateAttendanceInput, CreateEventInput, CreateStaffInput, CreateSponsorInput } from './models'
 
 export interface IUserRepository {
   findByEmail(email: string): Promise<User | null>
@@ -58,4 +58,11 @@ export interface IVerificationTokenRepository {
   findByToken(token: string): Promise<VerificationToken | null>
   delete(token: string): Promise<void>
   deleteExpired(): Promise<void>
+}
+
+export interface IAdminOtpRepository {
+  create(data: CreateAdminOtpInput): Promise<AdminOtpCode>
+  findLatestForUser(userId: string): Promise<AdminOtpCode | null>
+  markUsed(id: string): Promise<void>
+  deleteExpiredForUser(userId: string): Promise<void>
 }
