@@ -161,7 +161,8 @@ export default function LoginPage() {
     // ─────────────────────────────────────────────────────────────────────────
     setTimeout(() => {
       setLoading(false);
-      window.location.href = isAdmin ? "/admin" : "/";
+      localStorage.setItem("fitpEmail", form.email);
+      window.location.href = isAdmin ? "/admin" : "/dashboard";
     }, 1200);
   };
 
