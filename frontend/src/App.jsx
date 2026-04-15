@@ -7,6 +7,9 @@ import MembershipPage from './pages/MembershipPage'
 import SponsorshipsPage from './pages/SponsorshipsPage'
 import ContactPage from './pages/ContactPage'
 import LoginPage from './pages/LoginPage'
+import MemberDashboard from './pages/MemberDashboard'
+import AdminDashboard  from './pages/AdminDashboard'
+
 
 export default function App() {
   return (
@@ -21,6 +24,8 @@ export default function App() {
           <Route path="/sponsorships" element={<SponsorshipsPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/dashboard" element={<MemberDashboard />} />
+          <Route path="/admin"     element={<AdminDashboard />} />
         </Routes>
       </BrowserRouter>
     </div>
