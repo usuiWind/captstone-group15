@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { signIn, requestAdminOtp } from "../api/services/authService";
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
 const GlobalStyles = () => (
@@ -116,14 +117,24 @@ const GlobalStyles = () => (
 );
 
 export default function LoginPage() {
-  const [ready,    setReady]    = useState(false);
-  const [role,     setRole]     = useState("member"); // "member" | "admin"
-  const [form,     setForm]     = useState({ email: "", password: "" });
-  const [errors,   setErrors]   = useState({});
-  const [loading,  setLoading]  = useState(false);
-  const [showPass, setShowPass] = useState(false);
+  const [ready,      setReady]      = useState(false);
+  const [role,       setRole]       = useState("member"); // "member" | "admin"
+  const [form,       setForm]       = useState({ email: "", password: "" });
+  const [errors,     setErrors]     = useState({});
+  const [loading,    setLoading]    = useState(false);
+  const [showPass,   setShowPass]   = useState(false);
+  // Admin OTP two-step state
+  const [otpStep,    setOtpStep]    = useState(false);  // true = show OTP input
+  const [otp,        setOtp]        = useState("");
+  const [otpError,   setOtpError]   = useState("");
+  const otpInputRef = useRef(null);
 
   useEffect(() => { setTimeout(() => setReady(true), 80); }, []);
+
+  // Focus OTP input as soon as the step appears
+  useEffect(() => {
+    if (otpStep && otpInputRef.current) otpInputRef.current.focus();
+  }, [otpStep]);
 
   const isAdmin = role === "admin";
 
@@ -133,6 +144,9 @@ export default function LoginPage() {
     setErrors({});
     setForm({ email: "", password: "" });
     setShowPass(false);
+    setOtpStep(false);
+    setOtp("");
+    setOtpError("");
   };
 
   const anim = (delay) => ({
@@ -149,20 +163,64 @@ export default function LoginPage() {
     return e;
   };
 
-  const handleSubmit = () => {
+  // Step 1 (member) or Step 1 of admin flow: validate credentials
+  const handleSubmit = async () => {
+    if (otpStep) { handleOtpSubmit(); return; }
+
     const e = validate();
     if (Object.keys(e).length > 0) { setErrors(e); return; }
     setErrors({});
     setLoading(true);
-    // ── Replace this with your real auth call ─────────────────────────────────
-    // After successful auth, redirect based on role:
-    //   member → "/"       (homepage / member dashboard)
-    //   admin  → "/admin"  (admin dashboard)
-    // ─────────────────────────────────────────────────────────────────────────
-    setTimeout(() => {
+
+    try {
+      if (isAdmin) {
+        // Request OTP — server validates credentials and sends email
+        await requestAdminOtp(form.email, form.password);
+        setOtpStep(true);
+      } else {
+        await signIn(form.email, form.password);
+        window.location.href = "/dashboard";
+      }
+    } catch (err) {
+      setErrors({ password: err.message || "Invalid email or password" });
+    } finally {
       setLoading(false);
-      window.location.href = isAdmin ? "/admin" : "/";
-    }, 1200);
+    }
+  };
+
+  // Step 2 of admin flow: verify OTP
+  const handleOtpSubmit = async () => {
+    if (!otp.trim()) { setOtpError("Please enter the code sent to your email"); return; }
+    setOtpError("");
+    setLoading(true);
+
+    try {
+      await signIn(form.email, form.password, otp);
+      window.location.href = "/admin";
+    } catch (err) {
+      const msg = err.message || "";
+      if (msg.includes("OTP_INVALID") || msg.includes("CredentialsSignin")) {
+        setOtpError("Invalid or expired code. Request a new one.");
+      } else {
+        setOtpError(msg || "Sign-in failed. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtpError("");
+    setOtp("");
+    setLoading(true);
+    try {
+      await requestAdminOtp(form.email, form.password);
+      setOtpError(""); // clear any previous error
+    } catch {
+      setOtpError("Could not resend code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (field, value) => {
@@ -360,83 +418,151 @@ export default function LoginPage() {
 
               <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
 
-                {/* Email */}
-                <div>
-                  <label className="form-label">Email</label>
-                  <input
-                    className={`form-input${errors.email ? " error" : ""}`}
-                    type="email"
-                    placeholder={isAdmin ? "admin@fitpuh.org" : "jane@example.com"}
-                    value={form.email}
-                    onChange={e => handleChange("email", e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleSubmit()}
-                  />
-                  {errors.email && (
-                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#C8102E", marginTop: 4, display: "block" }}>
-                      {errors.email}
-                    </span>
-                  )}
-                </div>
-
-                {/* Password */}
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.45rem" }}>
-                    <label className="form-label" style={{ margin: 0 }}>Password</label>
-                    <a href="/forgot-password" className="text-link">Forgot password?</a>
-                  </div>
-                  <div style={{ position: "relative" }}>
-                    <input
-                      className={`form-input${errors.password ? " error" : ""}`}
-                      type={showPass ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={form.password}
-                      onChange={e => handleChange("password", e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && handleSubmit()}
-                      style={{ paddingRight: "2.8rem" }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPass(s => !s)}
-                      style={{
-                        position: "absolute", right: "0.75rem", top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "none", border: "none", cursor: "pointer",
-                        color: "#aaa", padding: 0, lineHeight: 1, transition: "color 0.2s",
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.color = "#C8102E"}
-                      onMouseLeave={e => e.currentTarget.style.color = "#aaa"}
-                      title={showPass ? "Hide password" : "Show password"}
-                    >
-                      {showPass ? (
-                        <svg viewBox="0 0 22 16" fill="none" width={18} height={18}>
-                          <path d="M1 8S4.5 1 11 1s10 7 10 7-3.5 7-10 7S1 8 1 8z" stroke="currentColor" strokeWidth="1.6" />
-                          <circle cx="11" cy="8" r="3" stroke="currentColor" strokeWidth="1.6" />
-                          <path d="M2 2l18 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                        </svg>
-                      ) : (
-                        <svg viewBox="0 0 22 16" fill="none" width={18} height={18}>
-                          <path d="M1 8S4.5 1 11 1s10 7 10 7-3.5 7-10 7S1 8 1 8z" stroke="currentColor" strokeWidth="1.6" />
-                          <circle cx="11" cy="8" r="3" stroke="currentColor" strokeWidth="1.6" />
-                        </svg>
+                {!otpStep ? (
+                  <>
+                    {/* Email */}
+                    <div>
+                      <label className="form-label">Email</label>
+                      <input
+                        className={`form-input${errors.email ? " error" : ""}`}
+                        type="email"
+                        placeholder={isAdmin ? "admin@fitpuh.org" : "jane@example.com"}
+                        value={form.email}
+                        onChange={e => handleChange("email", e.target.value)}
+                        onKeyDown={e => e.key === "Enter" && handleSubmit()}
+                      />
+                      {errors.email && (
+                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#C8102E", marginTop: 4, display: "block" }}>
+                          {errors.email}
+                        </span>
                       )}
-                    </button>
-                  </div>
-                  {errors.password && (
-                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#C8102E", marginTop: 4, display: "block" }}>
-                      {errors.password}
-                    </span>
-                  )}
-                </div>
+                    </div>
 
-                {/* Submit — color matches role */}
-                <button
-                  className={isAdmin ? "btn-admin" : "btn-member"}
-                  onClick={handleSubmit}
-                  disabled={loading}
-                  style={{ marginTop: "0.3rem" }}
-                >
-                  {loading ? "Signing in…" : isAdmin ? "Sign In as Admin" : "Sign In"}
-                </button>
+                    {/* Password */}
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.45rem" }}>
+                        <label className="form-label" style={{ margin: 0 }}>Password</label>
+                        <a href="/forgot-password" className="text-link">Forgot password?</a>
+                      </div>
+                      <div style={{ position: "relative" }}>
+                        <input
+                          className={`form-input${errors.password ? " error" : ""}`}
+                          type={showPass ? "text" : "password"}
+                          placeholder="••••••••"
+                          value={form.password}
+                          onChange={e => handleChange("password", e.target.value)}
+                          onKeyDown={e => e.key === "Enter" && handleSubmit()}
+                          style={{ paddingRight: "2.8rem" }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPass(s => !s)}
+                          style={{
+                            position: "absolute", right: "0.75rem", top: "50%",
+                            transform: "translateY(-50%)",
+                            background: "none", border: "none", cursor: "pointer",
+                            color: "#aaa", padding: 0, lineHeight: 1, transition: "color 0.2s",
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.color = "#C8102E"}
+                          onMouseLeave={e => e.currentTarget.style.color = "#aaa"}
+                          title={showPass ? "Hide password" : "Show password"}
+                        >
+                          {showPass ? (
+                            <svg viewBox="0 0 22 16" fill="none" width={18} height={18}>
+                              <path d="M1 8S4.5 1 11 1s10 7 10 7-3.5 7-10 7S1 8 1 8z" stroke="currentColor" strokeWidth="1.6" />
+                              <circle cx="11" cy="8" r="3" stroke="currentColor" strokeWidth="1.6" />
+                              <path d="M2 2l18 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                            </svg>
+                          ) : (
+                            <svg viewBox="0 0 22 16" fill="none" width={18} height={18}>
+                              <path d="M1 8S4.5 1 11 1s10 7 10 7-3.5 7-10 7S1 8 1 8z" stroke="currentColor" strokeWidth="1.6" />
+                              <circle cx="11" cy="8" r="3" stroke="currentColor" strokeWidth="1.6" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                      {errors.password && (
+                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#C8102E", marginTop: 4, display: "block" }}>
+                          {errors.password}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Submit — Step 1 */}
+                    <button
+                      className={isAdmin ? "btn-admin" : "btn-member"}
+                      onClick={handleSubmit}
+                      disabled={loading}
+                      style={{ marginTop: "0.3rem" }}
+                    >
+                      {loading
+                        ? (isAdmin ? "Sending code…" : "Signing in…")
+                        : (isAdmin ? "Continue" : "Sign In")}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {/* OTP Step (admin only) */}
+                    <div style={{
+                      background: "#f0f4ff", borderRadius: 8,
+                      padding: "0.85rem 1rem",
+                      fontFamily: "'DM Sans', sans-serif", fontSize: 13,
+                      color: "#03082e", lineHeight: 1.55,
+                    }}>
+                      A 6-digit code was sent to <strong>{form.email}</strong>. It expires in 10 minutes.
+                    </div>
+
+                    <div>
+                      <label className="form-label">Verification Code</label>
+                      <input
+                        ref={otpInputRef}
+                        className={`form-input${otpError ? " error" : ""}`}
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="000000"
+                        maxLength={6}
+                        value={otp}
+                        onChange={e => { setOtp(e.target.value.replace(/\D/g, "").slice(0, 6)); setOtpError(""); }}
+                        onKeyDown={e => e.key === "Enter" && handleOtpSubmit()}
+                        style={{ letterSpacing: "0.4rem", fontSize: "1.3rem", textAlign: "center" }}
+                      />
+                      {otpError && (
+                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#C8102E", marginTop: 4, display: "block" }}>
+                          {otpError}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Submit — Step 2 */}
+                    <button
+                      className="btn-admin"
+                      onClick={handleOtpSubmit}
+                      disabled={loading || otp.length < 6}
+                      style={{ marginTop: "0.3rem" }}
+                    >
+                      {loading ? "Verifying…" : "Verify & Sign In"}
+                    </button>
+
+                    {/* Back + Resend */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => { setOtpStep(false); setOtp(""); setOtpError(""); }}
+                        style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#aaa", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}
+                      >
+                        ← Back
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        disabled={loading}
+                        style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#C8102E", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}
+                      >
+                        Resend Code
+                      </button>
+                    </div>
+                  </>
+                )}
 
               </div>
 

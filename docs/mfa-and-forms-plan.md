@@ -74,6 +74,87 @@ Index on `(user_id, expires_at)` for fast lookup.
 
 ---
 
+## Supabase Setup (required before testing with Supabase)
+
+Run this in the Supabase SQL editor:
+
+```sql
+create table mfa_codes (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  code        varchar(6) not null,
+  expires_at  timestamptz not null,
+  created_at  timestamptz not null default now()
+);
+
+-- Only one active OTP per user
+create unique index mfa_codes_user_id_idx on mfa_codes (user_id);
+```
+
+---
+
+## Frontend Work Remaining (Option A)
+
+The backend exposes two steps:
+
+### Step 1 — `POST /api/auth/mfa/send-otp`
+
+Call this when the user submits email + password on the login form.
+
+**Request body:**
+```json
+{ "email": "user@example.com", "password": "their-password" }
+```
+
+**Success response:** `{ "success": true }` with HTTP 200.  
+**Failure response:** HTTP 401 (wrong credentials) or 400 (validation error).
+
+On success, show a second input asking for the 6-digit code that was just emailed.
+
+### Step 2 — NextAuth `signIn('credentials', ...)`
+
+Call this when the user submits the OTP code.
+
+```js
+import { signIn } from 'next-auth/react'
+
+const result = await signIn('credentials', {
+  redirect: false,
+  email,
+  password,
+  otpCode,  // the 6-digit code from the email
+})
+
+if (result?.error) {
+  // Show "Invalid or expired code" error
+} else {
+  // Redirect to /dashboard
+}
+```
+
+### UI Flow
+
+1. **Login page** (`LoginPage.jsx`) shows email + password fields (same as now).
+2. On submit → call `POST /api/auth/mfa/send-otp`.
+   - If 401: show "Invalid email or password."
+   - If 200: switch to a second view showing a 6-digit code input ("Check your email for a verification code").
+3. On OTP submit → call `signIn('credentials', { email, password, otpCode })`.
+   - If error: show "Invalid or expired code. Request a new one."
+   - Include a "Resend code" button that re-calls step 1.
+   - On success: redirect to `/dashboard`.
+
+### Files to change in the frontend
+
+| File | Change |
+|---|---|
+| `frontend/src/pages/LoginPage.jsx` | Add two-step state: `idle → codeSent → success`. Add OTP input view. |
+| `frontend/src/api/services/authService.js` | Add `sendOtp(email, password)` that calls `POST /api/auth/mfa/send-otp`. |
+| `frontend/src/context/AuthContext.jsx` | Update `login()` to accept `otpCode` and pass it to `signIn`. |
+
+No new pages or routes needed — the two steps live inside the existing `LoginPage`.
+
+---
+
 ### Option B — TOTP Authenticator App (stronger, more setup)
 
 **What it is.** Users enroll once by scanning a QR code into Google Authenticator or Authy. At login they supply the 30-second rotating 6-digit code alongside their password.
