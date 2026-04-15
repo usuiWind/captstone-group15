@@ -17,7 +17,6 @@ const GlobalStyles = () => (
       letter-spacing: 4px; text-transform: uppercase; font-weight: 700;
     }
 
-    /* Stat cards */
     .stat-card {
       background: white;
       border-radius: 10px;
@@ -31,7 +30,6 @@ const GlobalStyles = () => (
       box-shadow: 0 10px 32px rgba(0,0,0,0.1);
     }
 
-    /* Event row */
     .event-row {
       display: flex; align-items: center; gap: 1rem;
       padding: 0.85rem 1rem;
@@ -43,7 +41,6 @@ const GlobalStyles = () => (
     }
     .event-row:hover { transform: translateX(4px); }
 
-    /* Progress bar */
     .progress-track {
       width: 100%; height: 10px;
       background: #f0eff0; border-radius: 20px; overflow: hidden;
@@ -54,7 +51,6 @@ const GlobalStyles = () => (
       transition: width 1s ease;
     }
 
-    /* Announcement card */
     .announce-card {
       background: white; border-radius: 10px;
       border: 1px solid rgba(0,0,0,0.07);
@@ -73,25 +69,10 @@ const GlobalStyles = () => (
   `}</style>
 );
 
-// ─── MOCK DATA — swap these with real API calls later ─────────────────────────
-// To connect to Apps Script Web App:
-// const res = await fetch(`YOUR_WEB_APP_URL?email=${userEmail}`);
-// const data = await res.json();
-const MOCK_MEMBER = {
-  firstName:        "Alisa",
-  lastName:         "Akaya",
-  email:            "alisa.akaya@gmail.com",
-  psid:             "2047696",
-  major:            "Computer Information Systems",
-  classification:   "Senior",
-  membershipStatus: "Active",
-  membershipType:   "Full",
-  joinDate:         "August 2024",
-  totalPoints:      45,
-  pointsGoal:       100,
-  eventsAttended:   6,
-};
+// ─── REAL API URL ─────────────────────────────────────────────────────────────
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx0StFoRvZh00YfI7nzgj5ZWkKk9IHAY2-rGkb-HMu8CVGpv5vrjs9Kh-cze_prYKJyLA/exec";
 
+// ─── STATIC MOCK DATA (events/announcements — connect later) ─────────────────
 const MOCK_EVENTS = [
   { date: "Apr 3, 2026",  name: "AWS Certification Study Group",  type: "Study Night",      points: 10 },
   { date: "Mar 25, 2026", name: "FITP Networking Social",         type: "Social",           points: 5  },
@@ -123,23 +104,23 @@ const MOCK_ANNOUNCEMENTS = [
 ];
 
 const UPCOMING_EVENTS = [
-  { date: "Apr 10", name: "Resume Review Workshop",       time: "6:00 PM", points: 5  },
-  { date: "Apr 17", name: "Google Cloud Info Session",    time: "5:30 PM", points: 5  },
-  { date: "Apr 24", name: "FITP End of Semester Social",  time: "7:00 PM", points: 5  },
+  { date: "Apr 10", name: "Resume Review Workshop",      time: "6:00 PM", points: 5 },
+  { date: "Apr 17", name: "Google Cloud Info Session",   time: "5:30 PM", points: 5 },
+  { date: "Apr 24", name: "FITP End of Semester Social", time: "7:00 PM", points: 5 },
 ];
 
 const EVENT_TYPE_COLORS = {
-  "GBM":              "#003087",
-  "Study Night":      "#1a7a4a",
-  "Social":           "#7b3fa0",
-  "Workshop":         "#b8600a",
-  "Networking Event": "#0a7d8c",
-  "Mentorship Event": "#C8102E",
-  "PCI Event":        "#555",
+  "GBM":               "#003087",
+  "Study Night":       "#1a7a4a",
+  "Social":            "#7b3fa0",
+  "Workshop":          "#b8600a",
+  "Networking Event":  "#0a7d8c",
+  "Mentorship Event":  "#C8102E",
+  "PCI Event":         "#555",
   "Volunteering Event":"#2c7a2c",
 };
 
-// ─── COMPONENTS ───────────────────────────────────────────────────────────────
+// ─── STAT CARD COMPONENT ──────────────────────────────────────────────────────
 function StatCard({ label, value, sub, accent = "#C8102E", icon }) {
   return (
     <div className="stat-card" style={{ borderTop: `4px solid ${accent}` }}>
@@ -168,19 +149,116 @@ function StatCard({ label, value, sub, accent = "#C8102E", icon }) {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function MemberDashboard() {
-  const [ready, setReady] = useState(false);
-  const [member] = useState(MOCK_MEMBER);
+  const [ready,     setReady]     = useState(false);
+  const [member,    setMember]    = useState(null);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
-  useEffect(() => { setTimeout(() => setReady(true), 100); }, []);
+  // ── Fetch real member data from Apps Script Web App ──
+  useEffect(() => {
+    setTimeout(() => setReady(true), 100);
 
-  const progressPct = Math.min(100, Math.round((member.totalPoints / member.pointsGoal) * 100));
+    // Gets the logged-in member's email saved by LoginPage
+    const userEmail = localStorage.getItem("fitpEmail") || "";
+
+    if (!userEmail) {
+      setError(true);
+      setLoading(false);
+      return;
+    }
+
+    fetch(`${WEB_APP_URL}?email=${encodeURIComponent(userEmail)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.found) {
+          setMember({
+            firstName:        data.firstName   || "",
+            lastName:         data.lastName    || "",
+            email:            data.email       || userEmail,
+            major:            data.major       || "",
+            classification:   data.classification || "",
+            membershipStatus: data.status      || "Active",
+            membershipType:   data.type        || "Full",
+            joinDate:         data.joinDate    || "",
+            totalPoints:      Number(data.totalPoints) || 0,
+            pointsGoal:       100,
+            eventsAttended:   Number(data.eventsAttended) || 0,
+          });
+        } else {
+          setError(true);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
+  }, []);
 
   const anim = (delay) => ({
     opacity:    ready ? 1 : 0,
     transform:  ready ? "translateY(0)" : "translateY(18px)",
     transition: `opacity 0.6s ease ${delay}s, transform 0.6s ease ${delay}s`,
   });
+
+  // ── Loading state ──
+  if (loading) return (
+    <>
+      <GlobalStyles />
+      <div style={{
+        minHeight: "100vh", display: "flex",
+        alignItems: "center", justifyContent: "center",
+        background: "#f8f7f5", flexDirection: "column", gap: "1rem",
+      }}>
+        <div style={{
+          width: 48, height: 48, borderRadius: "50%",
+          border: "3px solid #f0eff0",
+          borderTop: "3px solid #C8102E",
+          animation: "spin 0.8s linear infinite",
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <div style={{ fontFamily: "'DM Sans'", fontSize: "0.9rem", color: "#aaa", letterSpacing: 2, textTransform: "uppercase" }}>
+          Loading your dashboard…
+        </div>
+      </div>
+    </>
+  );
+
+  // ── Error / not found state ──
+  if (error || !member) return (
+    <>
+      <GlobalStyles />
+      <div style={{
+        minHeight: "100vh", display: "flex",
+        alignItems: "center", justifyContent: "center",
+        background: "#f8f7f5",
+      }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{
+            fontFamily: "'Bebas Neue'", fontSize: "2.4rem",
+            color: "#C8102E", letterSpacing: 2, marginBottom: "0.6rem",
+          }}>
+            Member Not Found
+          </div>
+          <p style={{ fontFamily: "'DM Sans'", color: "#aaa", fontSize: "0.92rem", marginBottom: "1.5rem" }}>
+            We couldn't find your account. Please log in again.
+          </p>
+          <a href="/login" style={{
+            background: "#C8102E", color: "white",
+            padding: "0.75rem 2rem", borderRadius: 6,
+            fontFamily: "'DM Sans'", fontWeight: 700,
+            fontSize: 12, letterSpacing: 2, textTransform: "uppercase",
+            textDecoration: "none",
+          }}>
+            Back to Login
+          </a>
+        </div>
+      </div>
+    </>
+  );
+
+  const progressPct = Math.min(100, Math.round((member.totalPoints / member.pointsGoal) * 100));
 
   return (
     <>
@@ -209,6 +287,8 @@ export default function MemberDashboard() {
 
           <div style={{ maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
+
+              {/* Welcome text */}
               <div style={{ ...anim(0.05) }}>
                 <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
                   <span style={{ width: 20, height: 2, background: "#C8102E", display: "block", borderRadius: 2 }} />
@@ -225,21 +305,42 @@ export default function MemberDashboard() {
                 </p>
               </div>
 
-              {/* Status badge */}
-              <div style={{
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 10, padding: "0.9rem 1.4rem",
-                textAlign: "center", ...anim(0.12),
-              }}>
-                <div style={{ fontFamily: "'DM Sans'", fontSize: 10, letterSpacing: 3, textTransform: "uppercase", color: "rgba(255,255,255,0.4)", marginBottom: "0.3rem" }}>
-                  Membership
+              {/* Points + Status badges */}
+              <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", ...anim(0.12) }}>
+                {/* Live points badge */}
+                <div style={{
+                  background: "rgba(200,16,46,0.15)",
+                  border: "1px solid rgba(200,16,46,0.35)",
+                  borderRadius: 10, padding: "0.9rem 1.4rem",
+                  textAlign: "center",
+                }}>
+                  <div style={{ fontFamily: "'DM Sans'", fontSize: 10, letterSpacing: 3, textTransform: "uppercase", color: "rgba(255,255,255,0.5)", marginBottom: "0.3rem" }}>
+                    Total Points
+                  </div>
+                  <div style={{ fontFamily: "'Bebas Neue'", fontSize: "2rem", color: "#C8102E", letterSpacing: 1, lineHeight: 1 }}>
+                    {member.totalPoints}
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans'", fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: "0.2rem" }}>
+                    Goal: {member.pointsGoal}
+                  </div>
                 </div>
-                <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.4rem", color: "#4caf50", letterSpacing: 1 }}>
-                  {member.membershipStatus}
-                </div>
-                <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: "0.1rem" }}>
-                  {member.membershipType} Member
+
+                {/* Membership status badge */}
+                <div style={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 10, padding: "0.9rem 1.4rem",
+                  textAlign: "center",
+                }}>
+                  <div style={{ fontFamily: "'DM Sans'", fontSize: 10, letterSpacing: 3, textTransform: "uppercase", color: "rgba(255,255,255,0.4)", marginBottom: "0.3rem" }}>
+                    Membership
+                  </div>
+                  <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.4rem", color: "#4caf50", letterSpacing: 1 }}>
+                    {member.membershipStatus}
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: "0.1rem" }}>
+                    {member.membershipType} Member
+                  </div>
                 </div>
               </div>
             </div>
