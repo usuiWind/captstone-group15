@@ -179,6 +179,7 @@ export default function LoginPage() {
         setOtpStep(true);
       } else {
         await signIn(form.email, form.password);
+        localStorage.setItem("fitpEmail", form.email);
         window.location.href = "/dashboard";
       }
     } catch (err) {
@@ -196,6 +197,7 @@ export default function LoginPage() {
 
     try {
       await signIn(form.email, form.password, otp);
+      localStorage.setItem("fitpEmail", form.email);
       window.location.href = "/admin";
     } catch (err) {
       const msg = err.message || "";
