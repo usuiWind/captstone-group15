@@ -25,7 +25,7 @@ export const staffSchema = z.object({
   bio: z.string().max(1000, 'Bio too long').optional(),
   email: z.string().email('Invalid email format').optional(),
   order: z.number().int('Order must be an integer').min(0, 'Order must be non-negative'),
-  isActive: z.boolean({ error: 'isActive must be a boolean' })
+  isActive: z.boolean({ invalid_type_error: 'isActive must be a boolean' })
 })
 
 // Sponsor creation/update validation schema
@@ -33,10 +33,10 @@ export const sponsorSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
   websiteUrl: z.string().url('Invalid website URL').optional(),
   tier: z.enum(['PLATINUM', 'GOLD', 'SILVER', 'BRONZE'], {
-    error: 'Tier must be PLATINUM, GOLD, SILVER, or BRONZE'
+    invalid_type_error: 'Tier must be PLATINUM, GOLD, SILVER, or BRONZE'
   }),
   order: z.number().int('Order must be an integer').min(0, 'Order must be non-negative'),
-  isActive: z.boolean({ error: 'isActive must be a boolean' }),
+  isActive: z.boolean({ invalid_type_error: 'isActive must be a boolean' }),
   startDate: z.string().datetime('Invalid start date format').optional(),
   endDate: z.string().datetime('Invalid end date format').optional()
 })

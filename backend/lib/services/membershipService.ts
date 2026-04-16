@@ -22,8 +22,9 @@ export class MembershipService {
     
     const item = subscription.items.data[0]
     const planName = item?.price?.nickname || 'Unknown Plan'
-    const currentPeriodStart = new Date((item?.current_period_start ?? 0) * 1000)
-    const currentPeriodEnd = new Date((item?.current_period_end ?? 0) * 1000)
+    const currentPeriodStart = new Date((subscription.current_period_start ?? 0) * 1000)
+    const currentPeriodEnd = new Date((subscription.current_period_end ?? 0) * 1000)
+    
 
     const createMembershipInput: CreateMembershipInput = {
       userId,
