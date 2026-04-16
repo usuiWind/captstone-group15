@@ -86,11 +86,16 @@ export const updateEventSchema = z.object({
 export const updateMemberSchema = z.object({
   id: z.string().uuid('Invalid member ID'),
   name: z.string().min(1, 'Name is required').max(100, 'Name too long').optional(),
-  role: z.enum(['MEMBER', 'ADMIN'], { error: 'Role must be MEMBER or ADMIN' }).optional(),
+  role: z.enum(['MEMBER', 'ADMIN'], { invalid_type_error: 'Role must be MEMBER or ADMIN' }).optional(),
   revokeAccess: z.boolean().optional(),
 })
 
 // Validation helper function
+// OTP send validation schema
+export const sendOtpSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(1, 'Password is required')
+})
 export function validateRequest<T>(schema: z.ZodSchema<T>, data: unknown): T {
   try {
     return schema.parse(data)

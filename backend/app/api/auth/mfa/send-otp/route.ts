@@ -5,12 +5,12 @@ import { repositories } from '@/lib/container'
 import { validateRequest, sendOtpSchema } from '@/lib/validation'
 import { emailService } from '@/lib/email'
 import { createSecureResponse, createSecureErrorResponse } from '@/lib/security'
-import { authRateLimit, getClientIdentifier } from '@/lib/rateLimit'
+import { authRateLimitAsync, getClientIdentifier } from '@/lib/rateLimit'
 
 export async function POST(request: NextRequest) {
   try {
     const clientId = getClientIdentifier(request)
-    const rateLimitResult = authRateLimit(clientId)
+    const rateLimitResult = await authRateLimitAsync(clientId)
     if (!rateLimitResult.allowed) {
       return createSecureErrorResponse('Too many requests. Please try again later.', 429)
     }
@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
 
     // Replace any existing OTP for this user before creating a new one
-    await repositories.mfaCode.deleteByUserId(userId)
-    await repositories.mfaCode.create({ userId, code, expiresAt })
+    await repositories.otp.deleteExpiredForUser(userId)
+    await repositories.otp.create({ userId, codeHash: code, expiresAt })
 
     await emailService.sendOtpCode(email, code)
 
