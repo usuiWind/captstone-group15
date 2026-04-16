@@ -31,7 +31,7 @@ Returns all active staff members ordered by `order` field.
 
 ## GET /api/sponsors
 
-Returns all active sponsors.
+Returns all active sponsors (where `is_active = true` and `end_date >= today`).
 
 **Response 200**
 ```json
@@ -41,10 +41,38 @@ Returns all active sponsors.
     {
       "id": "uuid",
       "name": "Acme Corp",
-      "tier": "Gold",
+      "tier": "GOLD",
       "logoUrl": "https://...",
-      "website": "https://acme.com",
+      "websiteUrl": "https://acme.com",
       "isActive": true
+    }
+  ]
+}
+```
+
+---
+
+## GET /api/events
+
+Returns upcoming events (today or later) by default. Pass `?all=true` to include past events.
+
+**Query params**
+
+| Param | Effect |
+|---|---|
+| `all=true` | Returns all events, past and future |
+
+**Response 200**
+```json
+{
+  "data": [
+    {
+      "id": "1",
+      "title": "Weekly Meeting — Week 5",
+      "description": "Room 204B",
+      "eventDate": "2026-04-16T00:00:00.000Z",
+      "pointsValue": 1,
+      "createdAt": "..."
     }
   ]
 }
@@ -54,7 +82,7 @@ Returns all active sponsors.
 
 ## POST /api/contact
 
-Submits a contact form inquiry. Rate limited: 100 req / 15 min per IP.
+Submits a contact form inquiry. Rate limited: 10 req / hour per IP.
 
 **Request body**
 ```json
@@ -66,23 +94,14 @@ Submits a contact form inquiry. Rate limited: 100 req / 15 min per IP.
 }
 ```
 
-All four fields are required (400 if any are missing).
+All four fields required (400 if missing).
 
 **Responses**
+
 | Status | Meaning |
-|--------|---------|
-| 200 | `{ "success": true }` — message logged (email not yet sent) |
-| 400 | Missing required fields |
+|---|---|
+| 200 | `{ "success": true }` — submission logged |
+| 400 | Missing or invalid fields |
 | 429 | Rate limit exceeded |
-| 500 | Server error |
 
-**Note**: The contact handler currently only logs to the console. To send
-an email, add a `emailService.sendContactNotification()` call in
-`backend/app/api/contact/route.ts` and implement the method in `lib/email.ts`.
-
----
-
-## Admin mutations for staff and sponsors
-
-`POST/PUT/DELETE /api/admin/staff` and `/api/admin/sponsors` require ADMIN role.
-See `api-admin.md` for details.
+Note: contact submissions are currently logged to console only. Email notification is not yet wired (see `docs/architecture.md` Security Gaps).

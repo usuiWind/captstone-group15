@@ -1,4 +1,8 @@
 export { userRepositorySupabase } from './userRepository'
 export { membershipRepositorySupabase } from './membershipRepository'
 export { attendanceRepositorySupabase } from './attendanceRepository'
+export { eventRepositorySupabase } from './eventRepository'
 export { verificationTokenRepositorySupabase } from './verificationTokenRepository'
+export { staffRepositorySupabase } from './staffRepository'
+export { sponsorRepositorySupabase } from './sponsorRepository'
+export { otpRepositorySupabase } from './otpRepository'

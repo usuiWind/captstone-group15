@@ -1,66 +1,66 @@
 import { describe, it, expect } from 'vitest'
-import { createRateLimit, getClientIdentifier } from '../lib/rateLimit'
+import { createRateLimitAsync, getClientIdentifier } from '../lib/rateLimit'
 
-// Each test uses a unique identifier so the shared module-level store
-// doesn't cause cross-test contamination.
+// Each test creates its own limiter instance with a fresh ephemeral cache,
+// and uses unique identifiers to prevent cross-test contamination.
 let idCounter = 0
 function uid() {
   return `test-ip-${++idCounter}`
 }
 
-// ─── createRateLimit ──────────────────────────────────────────────────────────
+// ─── createRateLimitAsync ─────────────────────────────────────────────────────
 
-describe('createRateLimit', () => {
-  it('allows the first request', () => {
-    const limiter = createRateLimit({ windowMs: 60_000, maxRequests: 3 })
-    const result = limiter(uid())
+describe('createRateLimitAsync', () => {
+  it('allows the first request', async () => {
+    const limiter = createRateLimitAsync({ windowMs: 60_000, maxRequests: 3 })
+    const result = await limiter(uid())
     expect(result.allowed).toBe(true)
   })
 
-  it('allows requests up to the max', () => {
-    const limiter = createRateLimit({ windowMs: 60_000, maxRequests: 3 })
+  it('allows requests up to the max', async () => {
+    const limiter = createRateLimitAsync({ windowMs: 60_000, maxRequests: 3 })
     const id = uid()
-    expect(limiter(id).allowed).toBe(true)
-    expect(limiter(id).allowed).toBe(true)
-    expect(limiter(id).allowed).toBe(true)
+    expect((await limiter(id)).allowed).toBe(true)
+    expect((await limiter(id)).allowed).toBe(true)
+    expect((await limiter(id)).allowed).toBe(true)
   })
 
-  it('blocks the request that exceeds the max', () => {
-    const limiter = createRateLimit({ windowMs: 60_000, maxRequests: 3 })
+  it('blocks the request that exceeds the max', async () => {
+    const limiter = createRateLimitAsync({ windowMs: 60_000, maxRequests: 3 })
     const id = uid()
-    limiter(id)
-    limiter(id)
-    limiter(id)
-    const result = limiter(id) // 4th — over limit
+    await limiter(id)
+    await limiter(id)
+    await limiter(id)
+    const result = await limiter(id) // 4th — over limit
     expect(result.allowed).toBe(false)
   })
 
-  it('returns a resetTime when blocked', () => {
-    const limiter = createRateLimit({ windowMs: 60_000, maxRequests: 1 })
+  it('returns a resetTime when blocked', async () => {
+    const limiter = createRateLimitAsync({ windowMs: 60_000, maxRequests: 1 })
     const id = uid()
-    limiter(id)
-    const result = limiter(id)
+    await limiter(id)
+    const result = await limiter(id)
     expect(result.allowed).toBe(false)
     expect(result.resetTime).toBeTypeOf('number')
     expect(result.resetTime).toBeGreaterThan(Date.now())
   })
 
-  it('treats different identifiers independently', () => {
-    const limiter = createRateLimit({ windowMs: 60_000, maxRequests: 1 })
+  it('treats different identifiers independently', async () => {
+    const limiter = createRateLimitAsync({ windowMs: 60_000, maxRequests: 1 })
     const a = uid()
     const b = uid()
-    limiter(a) // exhaust A
-    expect(limiter(a).allowed).toBe(false)
-    expect(limiter(b).allowed).toBe(true) // B is unaffected
+    await limiter(a) // exhaust A
+    expect((await limiter(a)).allowed).toBe(false)
+    expect((await limiter(b)).allowed).toBe(true) // B is unaffected
   })
 
   it('allows again after the window expires', async () => {
-    const limiter = createRateLimit({ windowMs: 50, maxRequests: 1 })
+    const limiter = createRateLimitAsync({ windowMs: 50, maxRequests: 1 })
     const id = uid()
-    limiter(id)
-    expect(limiter(id).allowed).toBe(false)
+    await limiter(id)
+    expect((await limiter(id)).allowed).toBe(false)
     await new Promise(r => setTimeout(r, 60)) // wait for window to pass
-    expect(limiter(id).allowed).toBe(true)
+    expect((await limiter(id)).allowed).toBe(true)
   })
 })
 

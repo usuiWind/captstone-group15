@@ -9,12 +9,20 @@ const authOptions = {
       name: 'credentials',
       credentials: {
         email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' }
+        password: { label: 'Password', type: 'password' },
+        otp: { label: 'One-Time Code', type: 'text' },
       },
       async authorize(credentials) {
-        const email = credentials?.email as string | undefined
+        const email = (credentials?.email as string | undefined)?.trim().toLowerCase()
         const password = credentials?.password as string | undefined
+        const otp = (credentials?.otp as string | undefined)?.trim()
+
         if (!email || !password) return null
+
+        let userId: string
+        let userEmail: string
+        let userName: string | undefined
+        let userRole: 'MEMBER' | 'ADMIN'
 
         if (process.env.SUPABASE_URL) {
           // Production: Supabase Auth validates the password.
@@ -23,15 +31,42 @@ const authOptions = {
           if (error || !data.user) return null
           const user = await repositories.user.findById(data.user.id)
           if (!user) return null
-          return { id: user.id, email: user.email, name: user.name, role: user.role }
+          userId = user.id
+          userEmail = user.email
+          userName = user.name
+          userRole = user.role
+        } else {
+          // Stub mode (no SUPABASE_URL): validate with bcrypt against the in-memory repo.
+          const user = await repositories.user.findByEmail(email)
+          if (!user?.passwordHash) return null
+          const valid = await bcrypt.compare(password, user.passwordHash)
+          if (!valid) return null
+          userId = user.id
+          userEmail = user.email
+          userName = user.name
+          userRole = user.role
         }
 
-        // Stub mode (no SUPABASE_URL): validate with bcrypt against the in-memory repo.
-        const user = await repositories.user.findByEmail(email)
-        if (!user?.passwordHash) return null
-        const valid = await bcrypt.compare(password, user.passwordHash)
-        if (!valid) return null
-        return { id: user.id, email: user.email, name: user.name, role: user.role }
+        // Admin accounts require a valid OTP as a second factor.
+        if (userRole === 'ADMIN') {
+          if (!otp) {
+            // Signal the frontend to prompt for OTP. Returning null causes NextAuth
+            // to redirect to /login?error=CredentialsSignin. The frontend detects
+            // the absence of OTP and shows the OTP input instead.
+            throw new Error('OTP_REQUIRED')
+          }
+
+          const otpRecord = await repositories.otp.findLatestForUser(userId)
+          if (!otpRecord) throw new Error('OTP_INVALID')
+
+          const otpValid = await bcrypt.compare(otp, otpRecord.codeHash)
+          if (!otpValid) throw new Error('OTP_INVALID')
+
+          // Consume the code so it cannot be reused.
+          await repositories.otp.markUsed(otpRecord.id)
+        }
+
+        return { id: userId, email: userEmail, name: userName, role: userRole }
       }
     })
   ],
@@ -46,9 +81,13 @@ const authOptions = {
       return token
     },
     async session({ session, token }: { session: any; token: any }) {
-      if (token) {
-        session.user.id = token.sub!
-        session.user.role = token.role as string
+      if (token?.sub) {
+        // Re-fetch role from DB on every request so role changes (e.g. admin
+        // demotion via PATCH /api/admin/members) take effect immediately instead
+        // of persisting until JWT expiry (up to 30 days with the default strategy).
+        const freshUser = await repositories.user.findById(token.sub)
+        session.user.id = token.sub
+        session.user.role = freshUser?.role ?? (token.role as string)
       }
       return session
     }

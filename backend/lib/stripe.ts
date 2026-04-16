@@ -65,10 +65,14 @@ export const reactivateSubscription = async (subscriptionId: string) => {
   })
 }
 
+export const cancelSubscriptionImmediately = async (subscriptionId: string) => {
+  return await getStripe().subscriptions.cancel(subscriptionId)
+}
+
 export const constructWebhookEvent = (payload: string | Buffer, signature: string) => {
-  return getStripe().webhooks.constructEvent(
-    payload,
-    signature,
-    process.env.STRIPE_WEBHOOK_SECRET!
-  )
+  const secret = process.env.STRIPE_WEBHOOK_SECRET
+  if (!secret) {
+    throw new Error('STRIPE_WEBHOOK_SECRET environment variable is not set')
+  }
+  return getStripe().webhooks.constructEvent(payload, signature, secret)
 }
