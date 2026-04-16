@@ -16,7 +16,30 @@ export interface RateLimitOptions {
   maxRequests: number // max requests per window
 }
 
-function buildLimiter(options: RateLimitOptions): Ratelimit {
+interface Limiter {
+  limit(identifier: string): Promise<{ success: boolean; reset: number }>
+}
+
+// Pure in-memory sliding window for dev/test — no Redis calls, no external deps.
+class InMemoryRateLimiter implements Limiter {
+  private windows = new Map<string, number[]>()
+  constructor(private maxRequests: number, private windowMs: number) {}
+
+  async limit(identifier: string): Promise<{ success: boolean; reset: number }> {
+    const now = Date.now()
+    const hits = (this.windows.get(identifier) ?? []).filter(t => t > now - this.windowMs)
+    const reset = now + this.windowMs
+    if (hits.length >= this.maxRequests) {
+      this.windows.set(identifier, hits)
+      return { success: false, reset }
+    }
+    hits.push(now)
+    this.windows.set(identifier, hits)
+    return { success: true, reset }
+  }
+}
+
+function buildLimiter(options: RateLimitOptions): Limiter {
   const windowSec = Math.ceil(options.windowMs / 1000)
 
   if (
@@ -34,21 +57,8 @@ function buildLimiter(options: RateLimitOptions): Ratelimit {
     })
   }
 
-  // Development / test path — ephemeral in-process Map (no Redis required).
-  // @upstash/ratelimit uses the ephemeralCache as the sole store when the
-  // redis client never actually receives requests, but it still needs a
-  // duck-typed redis object in the constructor. We provide a no-op stub.
-  const noopRedis = {
-    sadd: async () => 0,
-    eval: async () => [],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any
-  return new Ratelimit({
-    redis: noopRedis,
-    limiter: Ratelimit.slidingWindow(options.maxRequests, `${windowSec} s`),
-    ephemeralCache: new Map(),
-    analytics: false,
-  })
+  // Development / test path — pure in-memory sliding window, no Redis required.
+  return new InMemoryRateLimiter(options.maxRequests, options.windowMs)
 }
 
 /**
@@ -67,15 +77,15 @@ export function createRateLimitAsync(
 
 // Lazy-init: limiters are created on first use to avoid cold-start cost and
 // to allow env vars to be read after module load (e.g. in tests).
-let _authLimiter: Ratelimit | null = null
-let _generalLimiter: Ratelimit | null = null
+let _authLimiter: Limiter | null = null
+let _generalLimiter: Limiter | null = null
 
-function getAuthLimiter(): Ratelimit {
+function getAuthLimiter(): Limiter {
   if (!_authLimiter) _authLimiter = buildLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5 })
   return _authLimiter
 }
 
-function getGeneralLimiter(): Ratelimit {
+function getGeneralLimiter(): Limiter {
   if (!_generalLimiter) _generalLimiter = buildLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 100 })
   return _generalLimiter
 }

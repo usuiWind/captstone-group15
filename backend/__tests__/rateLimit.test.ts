@@ -1,4 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+
+beforeAll(() => {
+  vi.stubEnv('UPSTASH_REDIS_REST_URL', '')
+  vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', '')
+})
+afterAll(() => vi.unstubAllEnvs())
+
 import { createRateLimitAsync, getClientIdentifier } from '../lib/rateLimit'
 
 // Each test creates its own limiter instance with a fresh ephemeral cache,

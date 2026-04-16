@@ -20,4 +20,8 @@ export class AttendanceService {
   async deleteAttendance(id: string): Promise<void> {
     await repositories.attendance.delete(id)
   }
+
+  async getAllAttendance(): Promise<Attendance[]> {
+    return []
+  }
 }

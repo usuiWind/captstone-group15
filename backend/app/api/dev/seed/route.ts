@@ -13,19 +13,24 @@ export async function POST() {
   const adminPassword = 'Admin1234!'
   const memberPassword = 'Member1234!'
 
+  const adminHash = await bcrypt.hash(adminPassword, 12)
+  const memberHash = await bcrypt.hash(memberPassword, 12)
+
   // -- Admin user --
   let admin = await repositories.user.findByEmail(adminEmail)
   if (!admin) {
-    admin = await repositories.user.create({ email: adminEmail, name: 'Test Admin', role: 'ADMIN' })
+    admin = await repositories.user.create({ email: adminEmail, name: 'Test Admin', role: 'ADMIN', passwordHash: adminHash })
+  } else {
+    await repositories.user.setPassword(admin.id, adminPassword)
   }
-  await repositories.user.setPassword(admin.id, adminPassword)
 
   // -- Member user --
   let member = await repositories.user.findByEmail(memberEmail)
   if (!member) {
-    member = await repositories.user.create({ email: memberEmail, name: 'Test Member', role: 'MEMBER' })
+    member = await repositories.user.create({ email: memberEmail, name: 'Test Member', role: 'MEMBER', passwordHash: memberHash })
+  } else {
+    await repositories.user.setPassword(member.id, memberPassword)
   }
-  await repositories.user.setPassword(member.id, memberPassword)
 
   // -- Membership for the member (idempotent) --
   let membership = await repositories.membership.findByUserId(member.id)
