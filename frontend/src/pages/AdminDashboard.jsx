@@ -257,21 +257,36 @@ export default function AdminDashboard() {
                 </p>
               </div>
 
-              {/* Quick action */}
-              <a href="/membership" style={{
-                background: "#C8102E", color: "white",
-                padding: "0.75rem 1.5rem", borderRadius: 6,
-                fontFamily: "'DM Sans'", fontWeight: 700,
-                fontSize: 12, letterSpacing: 2, textTransform: "uppercase",
-                textDecoration: "none",
-                boxShadow: "0 6px 20px rgba(200,16,46,0.35)",
-                transition: "all 0.2s", ...anim(0.1),
-              }}
-                onMouseEnter={e => { e.currentTarget.style.background = "#a00d25"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "#C8102E"; e.currentTarget.style.transform = ""; }}
-              >
-                + Add Member
-              </a>
+              {/* Quick actions */}
+              <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                <a href="/membership" style={{
+                  background: "#C8102E", color: "white",
+                  padding: "0.75rem 1.5rem", borderRadius: 6,
+                  fontFamily: "'DM Sans'", fontWeight: 700,
+                  fontSize: 12, letterSpacing: 2, textTransform: "uppercase",
+                  textDecoration: "none",
+                  boxShadow: "0 6px 20px rgba(200,16,46,0.35)",
+                  transition: "all 0.2s", ...anim(0.1),
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "#a00d25"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "#C8102E"; e.currentTarget.style.transform = ""; }}
+                >
+                  + Add Member
+                </a>
+                <a href="/admin/manage" style={{
+                  background: "rgba(255,255,255,0.1)", color: "white",
+                  padding: "0.75rem 1.5rem", borderRadius: 6,
+                  fontFamily: "'DM Sans'", fontWeight: 700,
+                  fontSize: 12, letterSpacing: 2, textTransform: "uppercase",
+                  textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.2)",
+                  transition: "all 0.2s", ...anim(0.12),
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.2)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
+                >
+                  Manage
+                </a>
+              </div>
             </div>
 
             {/* Tabs */}

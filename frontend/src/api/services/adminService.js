@@ -1,4 +1,4 @@
-import { getJson, postJson, patchJson, deleteJson } from '../../../backend';
+import { getJson, postJson, patchJson, deleteJson, backendUrl } from '../../../backend';
 
 // ─── Events ───────────────────────────────────────────────────────────────────
 
@@ -57,4 +57,69 @@ export async function updateAttendance({ id, points, eventName, date }) {
 
 export async function deleteAttendance(id) {
   await deleteJson(`/api/admin/attendance?id=${encodeURIComponent(id)}`);
+}
+
+// ─── Staff ────────────────────────────────────────────────────────────────────
+
+export async function getAllStaff() {
+  const data = await getJson('/api/staff');
+  return data?.data ?? [];
+}
+
+export async function createStaff(fields, imageFile) {
+  const fd = new FormData();
+  Object.entries(fields).forEach(([k, v]) => v != null && fd.append(k, String(v)));
+  if (imageFile) fd.append('image', imageFile);
+  const res = await fetch(backendUrl('/api/admin/staff'), { method: 'POST', body: fd, credentials: 'include' });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || 'Failed to create staff member');
+  return data?.data ?? null;
+}
+
+export async function updateStaff(id, fields, imageFile) {
+  const fd = new FormData();
+  fd.append('id', id);
+  Object.entries(fields).forEach(([k, v]) => v != null && fd.append(k, String(v)));
+  if (imageFile) fd.append('image', imageFile);
+  const res = await fetch(backendUrl('/api/admin/staff'), { method: 'PUT', body: fd, credentials: 'include' });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || 'Failed to update staff member');
+  return data?.data ?? null;
+}
+
+export async function deleteStaff(id) {
+  await deleteJson(`/api/admin/staff?id=${encodeURIComponent(id)}`);
+}
+
+// ─── Sponsors ─────────────────────────────────────────────────────────────────
+
+export async function getAllSponsors() {
+  const data = await getJson('/api/sponsors');
+  const g = data?.data ?? {};
+  return [...(g.PLATINUM ?? []), ...(g.GOLD ?? []), ...(g.SILVER ?? []), ...(g.BRONZE ?? [])];
+}
+
+export async function createSponsor(fields, logoFile) {
+  const fd = new FormData();
+  Object.entries(fields).forEach(([k, v]) => v != null && fd.append(k, String(v)));
+  if (logoFile) fd.append('logo', logoFile);
+  const res = await fetch(backendUrl('/api/admin/sponsors'), { method: 'POST', body: fd, credentials: 'include' });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || 'Failed to create sponsor');
+  return data?.data ?? null;
+}
+
+export async function updateSponsor(id, fields, logoFile) {
+  const fd = new FormData();
+  fd.append('id', id);
+  Object.entries(fields).forEach(([k, v]) => v != null && fd.append(k, String(v)));
+  if (logoFile) fd.append('logo', logoFile);
+  const res = await fetch(backendUrl('/api/admin/sponsors'), { method: 'PUT', body: fd, credentials: 'include' });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || 'Failed to update sponsor');
+  return data?.data ?? null;
+}
+
+export async function deleteSponsor(id) {
+  await deleteJson(`/api/admin/sponsors?id=${encodeURIComponent(id)}`);
 }
