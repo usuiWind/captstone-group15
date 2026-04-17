@@ -13,7 +13,9 @@ const resend = apiKey ? new Resend(apiKey) : null
 
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   if (!resend) {
-    console.log(`[EMAIL STUB] To: ${to} | Subject: ${subject}`)
+    const otpMatch = html.match(/[\d]{6}/)
+    const extra = otpMatch ? ` | OTP: ${otpMatch[0]}` : ''
+    console.log(`[EMAIL STUB] To: ${to} | Subject: ${subject}${extra}`)
     return
   }
   const { error } = await resend.emails.send({ from: fromEmail, to, subject, html })

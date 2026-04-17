@@ -7,6 +7,7 @@ import MembershipPage from './pages/MembershipPage'
 import SponsorshipsPage from './pages/SponsorshipsPage'
 import ContactPage from './pages/ContactPage'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 import MemberDashboard from './pages/MemberDashboard'
 import AdminDashboard  from './pages/AdminDashboard'
 
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/sponsorships" element={<SponsorshipsPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route path="/dashboard" element={<MemberDashboard />} />
           <Route path="/admin"     element={<AdminDashboard />} />
         </Routes>

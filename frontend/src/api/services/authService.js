@@ -29,14 +29,30 @@ export async function getSession() {
 export async function signIn(email, password, otp) {
   const csrfToken = await getCsrfToken();
   if (!csrfToken) throw new Error('Could not get security token');
-  await postForm('/api/auth/callback/credentials', {
-    csrfToken,
-    email: String(email).trim(),
-    password,
-    ...(otp ? { otp: String(otp).trim() } : {}),
-    callbackUrl: window.location.origin,
-    json: 'true',
+
+  // Use redirect:'manual' so we can inspect the Location header instead of
+  // following the 302 to the login page (which would look like a 200 success).
+  const { backendUrl } = await import('../../../backend');
+  const res = await fetch(backendUrl('/api/auth/callback/credentials'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      csrfToken,
+      email: String(email).trim(),
+      password,
+      ...(otp ? { otp: String(otp).trim() } : {}),
+      callbackUrl: window.location.origin,
+    }).toString(),
+    credentials: 'include',
+    redirect: 'manual',
   });
+
+  const location = res.headers.get('location') ?? '';
+  if (location.includes('error=')) {
+    const params = new URLSearchParams(location.split('?')[1] ?? '');
+    const code = params.get('error') ?? 'CredentialsSignin';
+    throw new Error(code);
+  }
 }
 
 /**
@@ -58,7 +74,15 @@ export async function requestAdminOtp(email, password) {
  * Sign out and clear session.
  */
 export async function signOut() {
-  await postJson('/api/auth/signout', { callbackUrl: window.location.origin });
+  const csrfToken = await getCsrfToken();
+  const { backendUrl } = await import('../../../backend');
+  await fetch(backendUrl('/api/auth/signout'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ csrfToken: csrfToken ?? '', callbackUrl: '/' }).toString(),
+    credentials: 'include',
+    redirect: 'manual',
+  });
 }
 
 /**

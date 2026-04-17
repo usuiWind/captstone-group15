@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
+import { getAllMembers, getAllEvents } from "../api/services/adminService";
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
 const GlobalStyles = () => (
@@ -114,25 +115,7 @@ const GlobalStyles = () => (
   `}</style>
 );
 
-// ─── MOCK DATA — swap with real Apps Script Web App calls later ───────────────
-const MOCK_MEMBERS = [
-  { id: 1, psid: "2047696",  firstName: "Alisa",   lastName: "Akaya",     email: "alisa.akaya@gmail.com",   major: "CIS",      classification: "Senior",    status: "Active",   type: "Full",      points: 45,  events: 6  },
-  { id: 2, psid: "1001002",  firstName: "Marcus",  lastName: "Williams",  email: "m.williams@uh.edu",       major: "CS",       classification: "Senior",    status: "Active",   type: "Full",      points: 32,  events: 4  },
-  { id: 3, psid: "1001003",  firstName: "Priya",   lastName: "Patel",     email: "priya.patel@uh.edu",      major: "CIS",      classification: "Sophomore", status: "Active",   type: "Full",      points: 17,  events: 2  },
-  { id: 4, psid: "1001004",  firstName: "DeShawn", lastName: "Carter",    email: "dcarter@uh.edu",          major: "EE",       classification: "Junior",    status: "Inactive", type: "Full",      points: 0,   events: 0  },
-  { id: 5, psid: "1001005",  firstName: "Sofia",   lastName: "Rodriguez", email: "sofia.r@uh.edu",          major: "CIS",      classification: "Freshman",  status: "Active",   type: "Full",      points: 22,  events: 3  },
-  { id: 6, psid: "1001006",  firstName: "James",   lastName: "Kim",       email: "j.kim@uh.edu",            major: "MIS",      classification: "Junior",    status: "Pending",  type: "Associate", points: 10,  events: 1  },
-  { id: 7, psid: "1001007",  firstName: "Aisha",   lastName: "Johnson",   email: "a.johnson@uh.edu",        major: "CS",       classification: "Senior",    status: "Active",   type: "Full",      points: 57,  events: 8  },
-  { id: 8, psid: "1001008",  firstName: "Carlos",  lastName: "Mendez",    email: "c.mendez@uh.edu",         major: "CIS",      classification: "Sophomore", status: "Active",   type: "Full",      points: 14,  events: 2  },
-];
-
-const MOCK_RECENT_EVENTS = [
-  { date: "Apr 3, 2026",  name: "AWS Certification Study Group",  attendees: 24, type: "Study Night"      },
-  { date: "Mar 25, 2026", name: "FITP Networking Social",         attendees: 38, type: "Social"           },
-  { date: "Mar 18, 2026", name: "Career Fair Prep Workshop",      attendees: 31, type: "Workshop"         },
-  { date: "Mar 10, 2026", name: "Tech Talk: Cloud Fundamentals",  attendees: 42, type: "GBM"              },
-  { date: "Feb 20, 2026", name: "Industry Mentorship Session",    attendees: 15, type: "Mentorship Event" },
-];
+// Announcements remain local-only (no backend API yet).
 
 const MOCK_ANNOUNCEMENTS = [
   { id: 1, date: "Apr 5, 2026", title: "USITCC Regional Conference Registration Open", tag: "Conference", body: "Registration for the 2026 USITCC Regional Conference is now open. Members with 50+ points get priority registration. Deadline is April 20th." },
@@ -185,8 +168,17 @@ export default function AdminDashboard() {
   const [announcements, setAnnouncements] = useState(MOCK_ANNOUNCEMENTS);
   const [newAnnounce, setNewAnnounce]     = useState({ title: "", tag: "", body: "" });
   const [showAnnounceForm, setShowForm]   = useState(false);
+  const [members, setMembers]   = useState([]);
+  const [events, setEvents]     = useState([]);
+  const [dataLoading, setDataLoading] = useState(true);
 
-  useEffect(() => { setTimeout(() => setReady(true), 100); }, []);
+  useEffect(() => {
+    setTimeout(() => setReady(true), 100);
+    Promise.all([getAllMembers(), getAllEvents()])
+      .then(([m, e]) => { setMembers(m); setEvents(e); })
+      .catch(console.error)
+      .finally(() => setDataLoading(false));
+  }, []);
 
   const anim = (delay) => ({
     opacity:    ready ? 1 : 0,
@@ -194,17 +186,19 @@ export default function AdminDashboard() {
     transition: `opacity 0.6s ease ${delay}s, transform 0.6s ease ${delay}s`,
   });
 
-  // Derived stats
-  const activeCount   = MOCK_MEMBERS.filter(m => m.status === "Active").length;
-  const totalPoints   = MOCK_MEMBERS.reduce((s, m) => s + m.points, 0);
-  const avgPoints     = Math.round(totalPoints / MOCK_MEMBERS.length);
-  const topMember     = [...MOCK_MEMBERS].sort((a, b) => b.points - a.points)[0];
+  // Helpers for real data shape
+  const memberStatus = (m) => (m.membership?.status ?? "UNKNOWN").toLowerCase();
+  const memberInitials = (m) => (m.name ?? "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+
+  // Derived stats from real data
+  const activeCount = members.filter(m => memberStatus(m) === "active").length;
 
   // Filtered members
-  const filtered = MOCK_MEMBERS.filter(m => {
+  const filtered = members.filter(m => {
     const matchSearch = search === "" ||
-      `${m.firstName} ${m.lastName} ${m.email} ${m.psid}`.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === "All" || m.status === filterStatus;
+      `${m.name ?? ""} ${m.email ?? ""}`.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = filterStatus === "All" ||
+      memberStatus(m) === filterStatus.toLowerCase();
     return matchSearch && matchStatus;
   });
 
@@ -303,13 +297,13 @@ export default function AdminDashboard() {
                 display: "grid", gridTemplateColumns: "repeat(4,1fr)",
                 gap: "1.25rem", marginBottom: "2rem", ...anim(0.08),
               }}>
-                <AdminStatCard label="Total Members"  value={MOCK_MEMBERS.length} sub={`${activeCount} active`}         accent="#C8102E"
+                <AdminStatCard label="Total Members"  value={dataLoading ? "…" : members.length} sub={`${activeCount} active`} accent="#C8102E"
                   icon={<svg viewBox="0 0 24 24" fill="none" width={18} height={18}><circle cx="9" cy="7" r="4" stroke="#C8102E" strokeWidth="1.8"/><path d="M3 21v-1a6 6 0 0112 0v1M16 11a4 4 0 010 8" stroke="#C8102E" strokeWidth="1.8" strokeLinecap="round"/></svg>} />
-                <AdminStatCard label="Total Points Awarded" value={totalPoints} sub="Across all members"                  accent="#003087"
+                <AdminStatCard label="Total Events" value={dataLoading ? "…" : events.length} sub="In system" accent="#003087"
                   icon={<svg viewBox="0 0 24 24" fill="none" width={18} height={18}><path d="M12 2l3 7h7l-6 4 2 7-6-4-6 4 2-7-6-4h7z" stroke="#003087" strokeWidth="1.8" strokeLinejoin="round"/></svg>} />
-                <AdminStatCard label="Avg Points / Member" value={avgPoints}    sub="Per active member"                  accent="#1a7a4a"
+                <AdminStatCard label="Active Members" value={dataLoading ? "…" : activeCount} sub={`of ${members.length} total`} accent="#1a7a4a"
                   icon={<svg viewBox="0 0 24 24" fill="none" width={18} height={18}><path d="M3 17l5-8 4 5 3-4 5 7" stroke="#1a7a4a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>} />
-                <AdminStatCard label="Top Member"  value={topMember.firstName}   sub={`${topMember.points} pts`}         accent="#7b3fa0"
+                <AdminStatCard label="Pending" value={dataLoading ? "…" : members.filter(m => memberStatus(m) === "pending").length} sub="Awaiting activation" accent="#7b3fa0"
                   icon={<svg viewBox="0 0 24 24" fill="none" width={18} height={18}><path d="M8 21h8M12 21v-4M5 8l1 4h12l1-4M8 8V4h8v4" stroke="#7b3fa0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>} />
               </div>
 
@@ -325,11 +319,15 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                   <div style={{ padding: "0.5rem 0" }}>
-                    {[...MOCK_MEMBERS].sort((a, b) => b.points - a.points).map((m, i) => (
+                    {dataLoading ? (
+                      <div style={{ padding: "2rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>Loading…</div>
+                    ) : members.length === 0 ? (
+                      <div style={{ padding: "2rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>No members yet.</div>
+                    ) : members.slice(0, 8).map((m, i) => (
                       <div key={m.id} style={{
                         display: "flex", alignItems: "center", gap: "1rem",
                         padding: "0.75rem 1.4rem",
-                        borderBottom: i < MOCK_MEMBERS.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none",
+                        borderBottom: i < members.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none",
                         transition: "background 0.15s",
                       }}
                         onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
@@ -346,18 +344,16 @@ export default function AdminDashboard() {
                           display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                         }}>
                           <span style={{ fontFamily: "'Bebas Neue'", color: "white", fontSize: "1rem" }}>
-                            {m.firstName[0]}{m.lastName[0]}
+                            {memberInitials(m)}
                           </span>
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.9rem", color: "#03082e" }}>
-                            {m.firstName} {m.lastName}
+                            {m.name}
                           </div>
-                          <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa" }}>{m.events} events</div>
+                          <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa" }}>{m.membership?.planName ?? "No plan"}</div>
                         </div>
-                        <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.4rem", color: i === 0 ? "#C8102E" : "#03082e", letterSpacing: 1 }}>
-                          {m.points}
-                        </div>
+                        <span className={`badge badge-${memberStatus(m)}`}>{(m.membership?.status ?? "—")}</span>
                       </div>
                     ))}
                   </div>
@@ -372,20 +368,26 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                   <div style={{ padding: "0.5rem 0" }}>
-                    {MOCK_RECENT_EVENTS.map((ev, i) => (
-                      <div key={i} style={{
+                    {dataLoading ? (
+                      <div style={{ padding: "2rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>Loading…</div>
+                    ) : events.length === 0 ? (
+                      <div style={{ padding: "2rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>No events yet.</div>
+                    ) : events.slice(0, 5).map((ev, i) => (
+                      <div key={ev.id} style={{
                         display: "flex", alignItems: "center", gap: "1rem",
                         padding: "0.85rem 1.4rem",
-                        borderBottom: i < MOCK_RECENT_EVENTS.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none",
-                        borderLeft: `3px solid ${EVENT_TYPE_COLORS[ev.type] || "#C8102E"}`,
+                        borderBottom: i < Math.min(events.length, 5) - 1 ? "1px solid rgba(0,0,0,0.04)" : "none",
+                        borderLeft: "3px solid #C8102E",
                       }}>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.88rem", color: "#03082e" }}>{ev.name}</div>
-                          <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa", marginTop: 2 }}>{ev.date}</div>
+                          <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.88rem", color: "#03082e" }}>{ev.title}</div>
+                          <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa", marginTop: 2 }}>
+                            {ev.eventDate ? new Date(ev.eventDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                          </div>
                         </div>
                         <div style={{ textAlign: "right", flexShrink: 0 }}>
-                          <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.3rem", color: "#03082e", letterSpacing: 1 }}>{ev.attendees}</div>
-                          <div style={{ fontFamily: "'DM Sans'", fontSize: 10, color: "#aaa", letterSpacing: 1 }}>attendees</div>
+                          <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.3rem", color: "#03082e", letterSpacing: 1 }}>{ev.pointsValue ?? 0}</div>
+                          <div style={{ fontFamily: "'DM Sans'", fontSize: 10, color: "#aaa", letterSpacing: 1 }}>pts</div>
                         </div>
                       </div>
                     ))}
@@ -433,7 +435,7 @@ export default function AdminDashboard() {
               <div style={{ background: "white", borderRadius: 10, border: "1px solid rgba(0,0,0,0.07)", boxShadow: "0 2px 16px rgba(0,0,0,0.06)", overflow: "hidden" }}>
                 {/* Header */}
                 <div className="table-header" style={{ borderRadius: "10px 10px 0 0" }}>
-                  {["Member", "Email", "Classification", "Status", "Points", "Events", ""].map((h, i) => (
+                  {["Member", "Email", "Role", "Status", "Plan", "", ""].map((h, i) => (
                     <span key={i} style={{
                       fontFamily: "'DM Sans'", fontSize: 10, fontWeight: 700,
                       letterSpacing: 2, textTransform: "uppercase",
@@ -445,13 +447,15 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Rows */}
-                {filtered.length === 0 ? (
+                {dataLoading ? (
+                  <div style={{ padding: "3rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>Loading members…</div>
+                ) : filtered.length === 0 ? (
                   <div style={{ padding: "3rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>
                     No members match your search.
                   </div>
                 ) : filtered.map(m => (
                   <div key={m.id} className="member-row">
-                    {/* Name + PSID */}
+                    {/* Name */}
                     <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                       <div style={{
                         width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
@@ -459,14 +463,12 @@ export default function AdminDashboard() {
                         display: "flex", alignItems: "center", justifyContent: "center",
                       }}>
                         <span style={{ fontFamily: "'Bebas Neue'", color: "white", fontSize: "0.95rem" }}>
-                          {m.firstName[0]}{m.lastName[0]}
+                          {memberInitials(m)}
                         </span>
                       </div>
                       <div>
-                        <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.9rem", color: "#03082e" }}>
-                          {m.firstName} {m.lastName}
-                        </div>
-                        <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa" }}>ID: {m.psid}</div>
+                        <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.9rem", color: "#03082e" }}>{m.name}</div>
+                        <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa" }}>{m.id.slice(0, 8)}…</div>
                       </div>
                     </div>
 
@@ -475,19 +477,16 @@ export default function AdminDashboard() {
                       {m.email}
                     </div>
 
-                    {/* Classification */}
-                    <div className="hide-mobile" style={{ fontFamily: "'DM Sans'", fontSize: "0.85rem", color: "#555" }}>{m.classification}</div>
+                    {/* Role */}
+                    <div className="hide-mobile" style={{ fontFamily: "'DM Sans'", fontSize: "0.85rem", color: "#555" }}>{m.role}</div>
 
                     {/* Status badge */}
                     <div>
-                      <span className={`badge badge-${m.status.toLowerCase()}`}>{m.status}</span>
+                      <span className={`badge badge-${memberStatus(m)}`}>{m.membership?.status ?? "—"}</span>
                     </div>
 
-                    {/* Points */}
-                    <div className="hide-mobile" style={{ fontFamily: "'Bebas Neue'", fontSize: "1.4rem", color: "#C8102E", letterSpacing: 1 }}>{m.points}</div>
-
-                    {/* Events */}
-                    <div className="hide-mobile" style={{ fontFamily: "'DM Sans'", fontSize: "0.88rem", color: "#555" }}>{m.events}</div>
+                    {/* Plan */}
+                    <div className="hide-mobile" style={{ fontFamily: "'DM Sans'", fontSize: "0.85rem", color: "#555" }}>{m.membership?.planName ?? "—"}</div>
 
                     {/* View button */}
                     <button onClick={() => setSelected(m)} style={{
@@ -506,7 +505,7 @@ export default function AdminDashboard() {
               </div>
 
               <div style={{ fontFamily: "'DM Sans'", fontSize: 12, color: "#bbb", marginTop: "0.75rem", textAlign: "right" }}>
-                Showing {filtered.length} of {MOCK_MEMBERS.length} members
+                Showing {filtered.length} of {members.length} members
               </div>
             </div>
           )}
@@ -519,31 +518,33 @@ export default function AdminDashboard() {
                 <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "2rem", color: "#03082e", letterSpacing: 2 }}>Recent Events</h2>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                {MOCK_RECENT_EVENTS.map((ev, i) => (
-                  <div key={i} style={{
+                {dataLoading ? (
+                  <div style={{ padding: "3rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>Loading events…</div>
+                ) : events.length === 0 ? (
+                  <div style={{ padding: "3rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>No events yet.</div>
+                ) : events.map((ev) => (
+                  <div key={ev.id} style={{
                     background: "white", borderRadius: 10,
                     border: "1px solid rgba(0,0,0,0.07)",
-                    borderLeft: `4px solid ${EVENT_TYPE_COLORS[ev.type] || "#C8102E"}`,
+                    borderLeft: "4px solid #C8102E",
                     padding: "1.2rem 1.5rem",
                     display: "flex", alignItems: "center", gap: "1.5rem",
                     boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
                   }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.3rem", color: "#03082e", letterSpacing: 1 }}>{ev.name}</div>
+                      <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.3rem", color: "#03082e", letterSpacing: 1 }}>{ev.title}</div>
                       <div style={{ display: "flex", gap: "1rem", marginTop: "0.3rem", alignItems: "center" }}>
-                        <span style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa" }}>{ev.date}</span>
-                        <span style={{
-                          fontFamily: "'DM Sans'", fontSize: 10, fontWeight: 700,
-                          letterSpacing: 1.5, textTransform: "uppercase",
-                          color: EVENT_TYPE_COLORS[ev.type] || "#C8102E",
-                          background: `${EVENT_TYPE_COLORS[ev.type] || "#C8102E"}15`,
-                          padding: "0.15rem 0.6rem", borderRadius: 10,
-                        }}>{ev.type}</span>
+                        <span style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa" }}>
+                          {ev.eventDate ? new Date(ev.eventDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                        </span>
                       </div>
+                      {ev.description && (
+                        <div style={{ fontFamily: "'DM Sans'", fontSize: 12, color: "#888", marginTop: "0.4rem" }}>{ev.description}</div>
+                      )}
                     </div>
                     <div style={{ textAlign: "center", flexShrink: 0 }}>
-                      <div style={{ fontFamily: "'Bebas Neue'", fontSize: "2.4rem", color: "#03082e", letterSpacing: 1, lineHeight: 1 }}>{ev.attendees}</div>
-                      <div style={{ fontFamily: "'DM Sans'", fontSize: 10, color: "#aaa", letterSpacing: 1.5, textTransform: "uppercase" }}>Attendees</div>
+                      <div style={{ fontFamily: "'Bebas Neue'", fontSize: "2.4rem", color: "#03082e", letterSpacing: 1, lineHeight: 1 }}>{ev.pointsValue ?? 0}</div>
+                      <div style={{ fontFamily: "'DM Sans'", fontSize: 10, color: "#aaa", letterSpacing: 1.5, textTransform: "uppercase" }}>Points</div>
                     </div>
                   </div>
                 ))}
@@ -696,15 +697,15 @@ export default function AdminDashboard() {
                   border: "2px solid rgba(255,255,255,0.15)",
                 }}>
                   <span style={{ fontFamily: "'Bebas Neue'", color: "white", fontSize: "1.3rem" }}>
-                    {selectedMember.firstName[0]}{selectedMember.lastName[0]}
+                    {memberInitials(selectedMember)}
                   </span>
                 </div>
                 <div>
                   <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.5rem", color: "white", letterSpacing: 1 }}>
-                    {selectedMember.firstName} {selectedMember.lastName}
+                    {selectedMember.name}
                   </div>
                   <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
-                    PSID: {selectedMember.psid}
+                    {selectedMember.role}
                   </div>
                 </div>
               </div>
@@ -726,8 +727,8 @@ export default function AdminDashboard() {
                 marginBottom: "1.5rem", textAlign: "center",
               }}>
                 {[
-                  { label: "Total Points", value: selectedMember.points },
-                  { label: "Events",       value: selectedMember.events },
+                  { label: "Status",  value: selectedMember.membership?.status ?? "—" },
+                  { label: "Plan",    value: selectedMember.membership?.planName ?? "—" },
                 ].map((s, i) => (
                   <div key={i}>
                     <div style={{ fontFamily: "'Bebas Neue'", fontSize: "2.4rem", color: "#C8102E", letterSpacing: 1, lineHeight: 1 }}>{s.value}</div>
@@ -739,11 +740,11 @@ export default function AdminDashboard() {
               {/* Details grid */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
                 {[
-                  { label: "Email",          value: selectedMember.email          },
-                  { label: "Major",          value: selectedMember.major          },
-                  { label: "Classification", value: selectedMember.classification },
-                  { label: "Status",         value: selectedMember.status         },
-                  { label: "Membership",     value: selectedMember.type           },
+                  { label: "Email",    value: selectedMember.email },
+                  { label: "Role",     value: selectedMember.role  },
+                  { label: "Plan",     value: selectedMember.membership?.planName ?? "—" },
+                  { label: "Status",   value: selectedMember.membership?.status  ?? "—" },
+                  { label: "Member since", value: selectedMember.createdAt ? new Date(selectedMember.createdAt).toLocaleDateString() : "—" },
                 ].map((f, i) => (
                   <div key={i} style={{
                     background: "#f8f7f5", borderRadius: 8, padding: "0.75rem 1rem",
