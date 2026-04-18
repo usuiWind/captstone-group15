@@ -11,6 +11,17 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            const location = proxyRes.headers['location']
+            if (location?.startsWith('http://localhost:3000')) {
+              proxyRes.headers['location'] = location.replace(
+                'http://localhost:3000',
+                'http://localhost:5173'
+              )
+            }
+          })
+        },
       },
     },
   },

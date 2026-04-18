@@ -15,12 +15,12 @@ const deleteMemberSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    
-    if (!session?.user?.id || session.user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { success: false, error: 'Admin access required' },
-        { status: 403 }
-      )
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+    if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -79,11 +79,11 @@ export async function PATCH(request: NextRequest) {
   try {
     const session = await auth()
 
-    if (!session?.user?.id || session.user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { success: false, error: 'Admin access required' },
-        { status: 403 }
-      )
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+    if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -150,11 +150,11 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await auth()
 
-    if (!session?.user?.id || session.user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { success: false, error: 'Admin access required' },
-        { status: 403 }
-      )
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+    if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)

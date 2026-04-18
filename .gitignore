@@ -117,3 +117,9 @@ jspm_packages/
 # Temporary folders
 tmp/
 temp/
+
+# Test screenshots & Playwright artifacts
+.screenshots/
+.playwright-mcp/
+*.png
+*.jpeg

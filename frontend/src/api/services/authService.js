@@ -30,8 +30,9 @@ export async function signIn(email, password, otp) {
   const csrfToken = await getCsrfToken();
   if (!csrfToken) throw new Error('Could not get security token');
 
-  // Use redirect:'manual' so we can inspect the Location header instead of
-  // following the 302 to the login page (which would look like a 200 success).
+  // Use redirect:'follow' so the browser processes the Set-Cookie from the
+  // 302 response (opaque redirects block cookie processing).
+  // Detect errors by checking the final URL for ?error= after redirect.
   const { backendUrl } = await import('../../../backend');
   const res = await fetch(backendUrl('/api/auth/callback/credentials'), {
     method: 'POST',
@@ -44,12 +45,11 @@ export async function signIn(email, password, otp) {
       callbackUrl: window.location.origin,
     }).toString(),
     credentials: 'include',
-    redirect: 'manual',
+    redirect: 'follow',
   });
 
-  const location = res.headers.get('location') ?? '';
-  if (location.includes('error=')) {
-    const params = new URLSearchParams(location.split('?')[1] ?? '');
+  if (res.url.includes('error=')) {
+    const params = new URLSearchParams(res.url.split('?')[1] ?? '');
     const code = params.get('error') ?? 'CredentialsSignin';
     throw new Error(code);
   }
