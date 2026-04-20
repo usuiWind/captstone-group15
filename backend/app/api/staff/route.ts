@@ -1,21 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { StaffService } from '@/lib/services/staffService'
+import { createSecureResponse, createSecureErrorResponse } from '@/lib/security'
 
 const staffService = new StaffService()
 
 export async function GET(request: NextRequest) {
   try {
     const staff = await staffService.getActiveStaff()
-
-    return NextResponse.json({
-      success: true,
-      data: staff
-    })
+    return createSecureResponse({ success: true, data: staff })
   } catch (error: any) {
     console.error('Get staff error:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to get staff' },
-      { status: 500 }
-    )
+    return createSecureErrorResponse('Failed to get staff', 500)
   }
 }

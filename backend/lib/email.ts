@@ -15,7 +15,10 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
   if (!resend) {
     const otpMatch = html.match(/[\d]{6}/)
     const extra = otpMatch ? ` | OTP: ${otpMatch[0]}` : ''
-    console.log(`[EMAIL STUB] To: ${to} | Subject: ${subject}${extra}`)
+    console.log(`\n\n========================================`)
+    console.log(`[EMAIL STUB] To: ${to}`)
+    console.log(`[EMAIL STUB] Subject: ${subject}${extra}`)
+    console.log(`========================================\n\n`)
     return
   }
   const { error } = await resend.emails.send({ from: fromEmail, to, subject, html })
