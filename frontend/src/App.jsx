@@ -15,6 +15,22 @@ function RequireAdmin({ children }) {
   }
   return children;
 }
+
+function RequireDashboard() {
+  const { user, loading, refetch } = useAuth();
+  const navigate = useNavigate();
+  useEffect(() => { refetch(); }, [refetch]);
+  if (loading) return <div style={{ minHeight: "100vh", background: "#f8f7f5" }} />;
+  if (!user) {
+    navigate('/login', { replace: true });
+    return null;
+  }
+  if (user.role === 'ADMIN') {
+    navigate('/admin', { replace: true });
+    return null;
+  }
+  return <MemberDashboard />;
+}
 import HomePage from './pages/HomePage'
 import AboutPage from './pages/AboutPage'
 import LeadershipPage from './pages/LeadershipPage'
@@ -42,7 +58,7 @@ export default function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/dashboard" element={<MemberDashboard />} />
+          <Route path="/dashboard" element={<RequireDashboard />} />
           <Route path="/admin"        element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
           <Route path="/admin/manage" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
         </Routes>
