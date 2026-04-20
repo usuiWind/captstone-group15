@@ -1,141 +1,86 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Navbar from "../components/Navbar";
-import { getAllMembers, getAllEvents } from "../api/services/adminService";
+import {
+  getAllMembers,
+  createMember,
+  updateMember,
+  deleteMember,
+  getMemberAttendance,
+  recordAttendance,
+  updateAttendance,
+  deleteAttendance,
+  getAllEvents,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+} from "../api/services/adminService";
 
-// ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
-const GlobalStyles = () => (
-  <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap');
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+function fmt(dateStr) {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; width: 100%; }
-    body { font-family: 'DM Sans', sans-serif; background: #f8f7f5; overflow-x: hidden; width: 100%; }
-    #root { width: 100%; }
+function daysLeft(dateStr) {
+  if (!dateStr) return null;
+  return Math.max(0, Math.ceil((new Date(dateStr) - new Date()) / 86400000));
+}
 
-    .section-tag {
-      font-family: 'DM Sans', sans-serif;
-      color: #C8102E; font-size: 11px;
-      letter-spacing: 4px; text-transform: uppercase; font-weight: 700;
-    }
-
-    .admin-stat-card {
-      background: white; border-radius: 10px;
-      border: 1px solid rgba(0,0,0,0.07);
-      box-shadow: 0 2px 16px rgba(0,0,0,0.06);
-      padding: 1.4rem 1.5rem;
-      transition: transform 0.25s ease, box-shadow 0.25s ease;
-    }
-    .admin-stat-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 32px rgba(0,0,0,0.1);
-    }
-
-    /* Member table rows */
-    .member-row {
-      display: grid;
-      grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr 1fr 80px;
-      align-items: center;
-      padding: 0.85rem 1.2rem;
-      border-bottom: 1px solid rgba(0,0,0,0.05);
-      transition: background 0.15s;
-      gap: 0.5rem;
-    }
-    .member-row:hover { background: #fafafa; }
-    .member-row:last-child { border-bottom: none; }
-
-    .table-header {
-      display: grid;
-      grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr 1fr 80px;
-      align-items: center;
-      padding: 0.7rem 1.2rem;
-      gap: 0.5rem;
-      background: #03082e;
-      border-radius: "8px 8px 0 0";
-    }
-
-    /* Status badges */
-    .badge {
-      display: inline-block;
-      padding: 0.2rem 0.65rem; border-radius: 12px;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 10px; font-weight: 700;
-      letter-spacing: 1px; text-transform: uppercase;
-    }
-    .badge-active   { background: rgba(76,175,80,0.12);  color: #2e7d32; }
-    .badge-inactive { background: rgba(255,193,7,0.15);  color: #b8600a; }
-    .badge-pending  { background: rgba(200,16,46,0.1);   color: #C8102E; }
-
-    /* Search input */
-    .search-input {
-      padding: 0.65rem 1rem 0.65rem 2.5rem;
-      font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
-      border: 1.5px solid rgba(0,0,0,0.1); border-radius: 6px;
-      outline: none; background: white; width: 260px;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .search-input:focus {
-      border-color: #C8102E;
-      box-shadow: 0 0 0 3px rgba(200,16,46,0.1);
-    }
-
-    /* Tab buttons */
-    .admin-tab-btn {
-      background: rgba(255,255,255,0.07);
-      border: none; border-radius: 6px 6px 0 0;
-      padding: 0.5rem 1.2rem; cursor: pointer;
-      font-family: 'DM Sans'; font-weight: 700;
-      font-size: 11px; letter-spacing: 1.8px; text-transform: uppercase;
-      color: rgba(255,255,255,0.45); transition: all 0.2s;
-    }
-    .admin-tab-btn.active {
-      background: #C8102E; color: white;
-    }
-
-    /* Announce form inputs */
-    .form-input {
-      width: 100%; padding: 0.75rem 1rem;
-      font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
-      color: #03082e; background: white;
-      border: 1.5px solid rgba(0,0,0,0.12); border-radius: 6px;
-      outline: none; transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .form-input:focus {
-      border-color: #C8102E;
-      box-shadow: 0 0 0 3px rgba(200,16,46,0.1);
-    }
-
-    @media (max-width: 900px) {
-      .member-row, .table-header { grid-template-columns: 2fr 1fr 1fr 80px !important; }
-      .hide-mobile { display: none !important; }
-      .admin-stats { grid-template-columns: 1fr 1fr !important; }
-    }
-    @media (max-width: 480px) {
-      .admin-stats { grid-template-columns: 1fr !important; }
-    }
-  `}</style>
-);
-
-// Announcements remain local-only (no backend API yet).
-
-const MOCK_ANNOUNCEMENTS = [
-  { id: 1, date: "Apr 5, 2026", title: "USITCC Regional Conference Registration Open", tag: "Conference", body: "Registration for the 2026 USITCC Regional Conference is now open. Members with 50+ points get priority registration. Deadline is April 20th." },
-  { id: 2, date: "Apr 1, 2026", title: "New Workshop Series Starting This Month",      tag: "Events",     body: "Join us for our April workshop series covering cloud certifications, resume reviews, and mock interviews." },
-  { id: 3, date: "Mar 28, 2026", title: "FITP Mentorship Program — Apply Now",         tag: "Mentorship", body: "Applications for the Spring mentorship cohort are open. Members who complete 3+ sessions earn 90 bonus points." },
-];
-
-const EVENT_TYPE_COLORS = {
-  "GBM":              "#003087",
-  "Study Night":      "#1a7a4a",
-  "Social":           "#7b3fa0",
-  "Workshop":         "#b8600a",
-  "Networking Event": "#0a7d8c",
-  "Mentorship Event": "#C8102E",
+const STATUS_STYLE = {
+  ACTIVE:    { color: "#16a34a", bg: "rgba(34,197,94,0.1)"   },
+  PENDING:   { color: "#ca8a04", bg: "rgba(234,179,8,0.1)"   },
+  PAST_DUE:  { color: "#ea580c", bg: "rgba(249,115,22,0.1)"  },
+  CANCELLED: { color: "#dc2626", bg: "rgba(239,68,68,0.1)"   },
+  EXPIRED:   { color: "#6b7280", bg: "rgba(107,114,128,0.1)" },
 };
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function Badge({ status }) {
+  const s = STATUS_STYLE[status] ?? STATUS_STYLE.EXPIRED;
+  return (
+    <span style={{
+      fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10,
+      letterSpacing: 1.5, textTransform: "uppercase",
+      color: s.color, background: s.bg,
+      padding: "0.25rem 0.6rem", borderRadius: 20,
+    }}>
+      {status?.replace("_", " ") ?? "None"}
+    </span>
+  );
+}
+
+function Tab({ label, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 12,
+        letterSpacing: 2, textTransform: "uppercase",
+        background: "none", border: "none", cursor: "pointer",
+        padding: "0.75rem 1.5rem", whiteSpace: "nowrap",
+        color: active ? "#C8102E" : "#888",
+        borderBottom: active ? "2.5px solid #C8102E" : "2.5px solid transparent",
+        transition: "color 0.2s",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
 function AdminStatCard({ label, value, sub, accent = "#C8102E", icon }) {
   return (
-    <div className="admin-stat-card" style={{ borderTop: `4px solid ${accent}` }}>
+    <div
+      style={{
+        background: "white", borderRadius: 10,
+        border: "1px solid rgba(0,0,0,0.07)",
+        boxShadow: "0 2px 16px rgba(0,0,0,0.06)",
+        padding: "1.4rem 1.5rem",
+        borderTop: `4px solid ${accent}`,
+        transition: "transform 0.25s ease, box-shadow 0.25s ease",
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(0,0,0,0.1)"; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 2px 16px rgba(0,0,0,0.06)"; }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <div style={{ fontFamily: "'DM Sans'", fontSize: 10, letterSpacing: 2.5, textTransform: "uppercase", color: "#aaa", fontWeight: 700, marginBottom: "0.35rem" }}>
@@ -146,634 +91,817 @@ function AdminStatCard({ label, value, sub, accent = "#C8102E", icon }) {
           </div>
           {sub && <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa", marginTop: "0.3rem" }}>{sub}</div>}
         </div>
-        <div style={{
-          width: 40, height: 40, borderRadius: "50%",
-          background: `${accent}18`,
-          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-        }}>
-          {icon}
+        {icon && (
+          <div style={{
+            width: 40, height: 40, borderRadius: "50%",
+            background: `${accent}18`,
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}>
+            {icon}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── OVERVIEW TAB ──────────────────────────────────────────────────────────────
+function OverviewTab({ members, events, loading, onTabChange }) {
+  const memberInitials = (m) => (m.name ?? "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  const memberStatus  = (m) => (m.membership?.status ?? "UNKNOWN").toLowerCase();
+  const activeCount   = members.filter(m => memberStatus(m) === "active").length;
+  const upcomingEvents = events.filter(e => new Date(e.eventDate) >= new Date());
+
+  return (
+    <div>
+      <div className="admin-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "1.25rem", marginBottom: "2rem" }}>
+        <AdminStatCard label="Total Members" value={loading ? "…" : members.length} sub={`${activeCount} active`} accent="#C8102E"
+          icon={<svg viewBox="0 0 24 24" fill="none" width={18} height={18}><circle cx="9" cy="7" r="4" stroke="#C8102E" strokeWidth="1.8"/><path d="M3 21v-1a6 6 0 0112 0v1M16 11a4 4 0 010 8" stroke="#C8102E" strokeWidth="1.8" strokeLinecap="round"/></svg>} />
+        <AdminStatCard label="Active Members" value={loading ? "…" : activeCount} sub={`of ${members.length} total`} accent="#16a34a"
+          icon={<svg viewBox="0 0 24 24" fill="none" width={18} height={18}><path d="M3 17l5-8 4 5 3-4 5 7" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>} />
+        <AdminStatCard label="Upcoming Events" value={loading ? "…" : upcomingEvents.length} sub="Scheduled" accent="#003087"
+          icon={<svg viewBox="0 0 24 24" fill="none" width={18} height={18}><rect x="3" y="4" width="18" height="18" rx="2" stroke="#003087" strokeWidth="1.8"/><path d="M16 2v4M8 2v4M3 10h18" stroke="#003087" strokeWidth="1.8" strokeLinecap="round"/></svg>} />
+        <AdminStatCard label="Pending" value={loading ? "…" : members.filter(m => memberStatus(m) === "pending").length} sub="Awaiting activation" accent="#7b3fa0"
+          icon={<svg viewBox="0 0 24 24" fill="none" width={18} height={18}><circle cx="12" cy="12" r="9" stroke="#7b3fa0" strokeWidth="1.8"/><path d="M12 7v5l3 3" stroke="#7b3fa0" strokeWidth="1.8" strokeLinecap="round"/></svg>} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "1.5rem" }}>
+        {/* Points leaderboard */}
+        <div style={{ background: "white", borderRadius: 10, border: "1px solid rgba(0,0,0,0.07)", boxShadow: "0 2px 16px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+          <div style={{ background: "#03082e", padding: "1rem 1.4rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontFamily: "'Bebas Neue'", fontSize: "1.3rem", color: "white", letterSpacing: 1 }}>Points Leaderboard</span>
+            <button onClick={() => onTabChange("members")} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans'", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: "#C8102E" }}>
+              View all →
+            </button>
+          </div>
+          <div style={{ padding: "0.5rem 0" }}>
+            {loading ? (
+              <div style={{ padding: "2rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>Loading…</div>
+            ) : members.length === 0 ? (
+              <div style={{ padding: "2rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>No members yet.</div>
+            ) : [...members].sort((a, b) => (b.points ?? 0) - (a.points ?? 0)).slice(0, 8).map((m, i) => (
+              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.75rem 1.4rem", borderBottom: "1px solid rgba(0,0,0,0.04)", transition: "background 0.15s" }}
+                onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+              >
+                <span style={{ fontFamily: "'Bebas Neue'", fontSize: "1.2rem", color: i === 0 ? "#C8102E" : i === 1 ? "#7b3fa0" : i === 2 ? "#b8600a" : "#ccc", minWidth: 24, letterSpacing: 1 }}>{i + 1}</span>
+                <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,#03082e,#C8102E)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <span style={{ fontFamily: "'Bebas Neue'", color: "white", fontSize: "1rem" }}>{memberInitials(m)}</span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.9rem", color: "#03082e" }}>{m.name}</div>
+                  <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa" }}>{m.membership?.planName ?? "No plan"}</div>
+                </div>
+                <Badge status={m.membership?.status ?? "NONE"} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Upcoming events */}
+        <div style={{ background: "white", borderRadius: 10, border: "1px solid rgba(0,0,0,0.07)", boxShadow: "0 2px 16px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+          <div style={{ background: "#03082e", padding: "1rem 1.4rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontFamily: "'Bebas Neue'", fontSize: "1.3rem", color: "white", letterSpacing: 1 }}>Upcoming Events</span>
+            <button onClick={() => onTabChange("events")} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans'", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: "#C8102E" }}>
+              Manage →
+            </button>
+          </div>
+          <div style={{ padding: "0.5rem 0" }}>
+            {loading ? (
+              <div style={{ padding: "2rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>Loading…</div>
+            ) : upcomingEvents.length === 0 ? (
+              <div style={{ padding: "2rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>No upcoming events.</div>
+            ) : upcomingEvents.slice(0, 6).map((ev, i, arr) => (
+              <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.85rem 1.4rem", borderBottom: i < arr.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none", borderLeft: "3px solid #C8102E" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.88rem", color: "#03082e" }}>{ev.title}</div>
+                  <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa", marginTop: 2 }}>{fmt(ev.eventDate)} · {ev.pointsValue} pts</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-export default function AdminDashboard() {
-  const [ready, setReady]           = useState(false);
-  const [activeTab, setActiveTab]   = useState("overview");
-  const [search, setSearch]         = useState("");
-  const [filterStatus, setFilter]   = useState("All");
-  const [selectedMember, setSelected] = useState(null);
-  const [announcements, setAnnouncements] = useState(MOCK_ANNOUNCEMENTS);
-  const [newAnnounce, setNewAnnounce]     = useState({ title: "", tag: "", body: "" });
-  const [showAnnounceForm, setShowForm]   = useState(false);
-  const [members, setMembers]   = useState([]);
-  const [events, setEvents]     = useState([]);
-  const [dataLoading, setDataLoading] = useState(true);
+// ─── MEMBERS TAB ───────────────────────────────────────────────────────────────
+function MembersTab({ members, loading, onRefresh }) {
+  const [filter, setFilter] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [working, setWorking] = useState(null);
+  const [actionError, setActionError] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ email: "", name: "", password: "" });
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [createSuccess, setCreateSuccess] = useState("");
 
-  useEffect(() => {
-    setTimeout(() => setReady(true), 100);
-    Promise.all([getAllMembers(), getAllEvents()])
-      .then(([m, e]) => { setMembers(m); setEvents(e); })
-      .catch(console.error)
-      .finally(() => setDataLoading(false));
-  }, []);
+  const filtered = members.filter(m =>
+    !filter ||
+    m.name?.toLowerCase().includes(filter.toLowerCase()) ||
+    m.email?.toLowerCase().includes(filter.toLowerCase())
+  );
 
-  const anim = (delay) => ({
-    opacity:    ready ? 1 : 0,
-    transform:  ready ? "translateY(0)" : "translateY(18px)",
-    transition: `opacity 0.6s ease ${delay}s, transform 0.6s ease ${delay}s`,
-  });
+  async function handleRevoke(member) {
+    setWorking(member.id + "_revoke");
+    setActionError("");
+    try {
+      await updateMember({ id: member.id, revokeAccess: true });
+      onRefresh();
+    } catch (e) {
+      setActionError(e.message || "Failed to revoke access.");
+    } finally {
+      setWorking(null);
+    }
+  }
 
-  // Helpers for real data shape
-  const memberStatus = (m) => (m.membership?.status ?? "UNKNOWN").toLowerCase();
-  const memberInitials = (m) => (m.name ?? "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  async function handleDelete(id) {
+    setWorking(id + "_delete");
+    setActionError("");
+    try {
+      await deleteMember(id);
+      setConfirmDelete(null);
+      onRefresh();
+    } catch (e) {
+      setActionError(e.message || "Failed to delete member.");
+    } finally {
+      setWorking(null);
+    }
+  }
 
-  // Derived stats from real data
-  const activeCount = members.filter(m => memberStatus(m) === "active").length;
+  async function handleCreate(e) {
+    e.preventDefault();
+    setCreateError(""); setCreateSuccess(""); setCreating(true);
+    try {
+      await createMember(createForm);
+      setCreateSuccess("Member created successfully.");
+      setCreateForm({ email: "", name: "", password: "" });
+      setShowCreate(false);
+      onRefresh();
+    } catch (err) {
+      setCreateError(err.message || "Failed to create member.");
+    } finally {
+      setCreating(false);
+    }
+  }
 
-  // Filtered members
-  const filtered = members.filter(m => {
-    const matchSearch = search === "" ||
-      `${m.name ?? ""} ${m.email ?? ""}`.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === "All" ||
-      memberStatus(m) === filterStatus.toLowerCase();
-    return matchSearch && matchStatus;
-  });
-
-  const handleAddAnnouncement = () => {
-    if (!newAnnounce.title.trim() || !newAnnounce.body.trim()) return;
-    const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    setAnnouncements(prev => [{ id: Date.now(), date: today, ...newAnnounce }, ...prev]);
-    setNewAnnounce({ title: "", tag: "", body: "" });
-    setShowForm(false);
-  };
-
-  const handleDeleteAnnouncement = (id) => {
-    setAnnouncements(prev => prev.filter(a => a.id !== id));
-  };
+  const thStyle = { fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2.5, textTransform: "uppercase", color: "#888", padding: "0.75rem 1rem", textAlign: "left", borderBottom: "1px solid rgba(0,0,0,0.08)", whiteSpace: "nowrap" };
+  const tdStyle = { fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#03082e", padding: "0.85rem 1rem", borderBottom: "1px solid rgba(0,0,0,0.05)", verticalAlign: "middle" };
+  const btnBase = { border: "none", borderRadius: 4, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", padding: "0.3rem 0.7rem" };
+  const inputStyle = { width: "100%", padding: "0.65rem 0.9rem", borderRadius: 6, border: "1.5px solid rgba(0,0,0,0.12)", fontFamily: "'DM Sans', sans-serif", fontSize: 13, outline: "none" };
 
   return (
-    <>
-      <GlobalStyles />
-      <Navbar active="" alwaysSolid />
-
-      <div style={{ paddingTop: 68, minHeight: "100vh", background: "#f8f7f5" }}>
-
-        {/* ── Header bar ── */}
-        <div style={{
-          background: "linear-gradient(152deg, #020619 0%, #04124a 55%, #1b040a 100%)",
-          padding: "2.5rem 2rem 0",
-          position: "relative", overflow: "hidden",
-        }}>
-          <div style={{
-            position: "absolute", inset: 0, opacity: 0.032,
-            backgroundImage: "linear-gradient(white 1px,transparent 1px),linear-gradient(90deg,white 1px,transparent 1px)",
-            backgroundSize: "64px 64px",
-          }} />
-          <div style={{
-            position: "absolute", right: "-5%", top: "-20%",
-            width: "40%", height: "150%", borderRadius: "50%",
-            background: "radial-gradient(ellipse, rgba(0,48,135,0.15) 0%, transparent 70%)",
-            pointerEvents: "none",
-          }} />
-
-          <div style={{ maxWidth: 1200, margin: "0 auto", position: "relative", zIndex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem", marginBottom: "1.8rem" }}>
-              <div style={{ ...anim(0.05) }}>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                  <span style={{ width: 20, height: 2, background: "#C8102E", display: "block", borderRadius: 2 }} />
-                  <span className="section-tag">Admin Portal</span>
-                </div>
-                <h1 style={{
-                  fontFamily: "'Bebas Neue'", fontSize: "clamp(2rem, 5vw, 3.2rem)",
-                  color: "white", letterSpacing: 2, lineHeight: 1,
-                }}>
-                  FITP UH Admin Dashboard
-                </h1>
-                <p style={{ fontFamily: "'DM Sans'", color: "rgba(255,255,255,0.4)", fontSize: "0.88rem", marginTop: "0.3rem" }}>
-                  Manage members, points, events, and announcements
-                </p>
-              </div>
-
-              {/* Quick actions */}
-              <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-                <a href="/membership" style={{
-                  background: "#C8102E", color: "white",
-                  padding: "0.75rem 1.5rem", borderRadius: 6,
-                  fontFamily: "'DM Sans'", fontWeight: 700,
-                  fontSize: 12, letterSpacing: 2, textTransform: "uppercase",
-                  textDecoration: "none",
-                  boxShadow: "0 6px 20px rgba(200,16,46,0.35)",
-                  transition: "all 0.2s", ...anim(0.1),
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "#a00d25"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "#C8102E"; e.currentTarget.style.transform = ""; }}
-                >
-                  + Add Member
-                </a>
-                <a href="/admin/manage" style={{
-                  background: "rgba(255,255,255,0.1)", color: "white",
-                  padding: "0.75rem 1.5rem", borderRadius: 6,
-                  fontFamily: "'DM Sans'", fontWeight: 700,
-                  fontSize: 12, letterSpacing: 2, textTransform: "uppercase",
-                  textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.2)",
-                  transition: "all 0.2s", ...anim(0.12),
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.2)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
-                >
-                  Manage
-                </a>
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <div style={{ display: "flex", gap: "0.25rem" }}>
-              {["overview", "members", "events", "announcements"].map(tab => (
-                <button key={tab} className={`admin-tab-btn${activeTab === tab ? " active" : ""}`}
-                  onClick={() => setActiveTab(tab)}>
-                  {tab}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Tab content ── */}
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "2rem" }}>
-
-          {/* ══ OVERVIEW TAB ══ */}
-          {activeTab === "overview" && (
+    <div>
+      {/* Create Member */}
+      <div style={{ marginBottom: "1.5rem" }}>
+        <button onClick={() => { setShowCreate(v => !v); setCreateError(""); setCreateSuccess(""); }}
+          style={{ ...btnBase, background: "#C8102E", color: "white", padding: "0.55rem 1.2rem", fontSize: 11, letterSpacing: 2 }}>
+          {showCreate ? "✕ Cancel" : "+ Create Member"}
+        </button>
+        {createSuccess && <span style={{ marginLeft: "1rem", fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#16a34a" }}>{createSuccess}</span>}
+        {showCreate && (
+          <form onSubmit={handleCreate} style={{ marginTop: "1rem", background: "white", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 10, padding: "1.25rem", display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: "0.75rem", alignItems: "end" }}>
             <div>
-              {/* Stats */}
-              <div className="admin-stats" style={{
-                display: "grid", gridTemplateColumns: "repeat(4,1fr)",
-                gap: "1.25rem", marginBottom: "2rem", ...anim(0.08),
-              }}>
-                <AdminStatCard label="Total Members"  value={dataLoading ? "…" : members.length} sub={`${activeCount} active`} accent="#C8102E"
-                  icon={<svg viewBox="0 0 24 24" fill="none" width={18} height={18}><circle cx="9" cy="7" r="4" stroke="#C8102E" strokeWidth="1.8"/><path d="M3 21v-1a6 6 0 0112 0v1M16 11a4 4 0 010 8" stroke="#C8102E" strokeWidth="1.8" strokeLinecap="round"/></svg>} />
-                <AdminStatCard label="Total Events" value={dataLoading ? "…" : events.length} sub="In system" accent="#003087"
-                  icon={<svg viewBox="0 0 24 24" fill="none" width={18} height={18}><path d="M12 2l3 7h7l-6 4 2 7-6-4-6 4 2-7-6-4h7z" stroke="#003087" strokeWidth="1.8" strokeLinejoin="round"/></svg>} />
-                <AdminStatCard label="Active Members" value={dataLoading ? "…" : activeCount} sub={`of ${members.length} total`} accent="#1a7a4a"
-                  icon={<svg viewBox="0 0 24 24" fill="none" width={18} height={18}><path d="M3 17l5-8 4 5 3-4 5 7" stroke="#1a7a4a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>} />
-                <AdminStatCard label="Pending" value={dataLoading ? "…" : members.filter(m => memberStatus(m) === "pending").length} sub="Awaiting activation" accent="#7b3fa0"
-                  icon={<svg viewBox="0 0 24 24" fill="none" width={18} height={18}><path d="M8 21h8M12 21v-4M5 8l1 4h12l1-4M8 8V4h8v4" stroke="#7b3fa0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>} />
-              </div>
-
-              {/* Two-column layout */}
-              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "1.5rem", ...anim(0.14) }}>
-
-                {/* Points leaderboard */}
-                <div style={{ background: "white", borderRadius: 10, border: "1px solid rgba(0,0,0,0.07)", boxShadow: "0 2px 16px rgba(0,0,0,0.06)", overflow: "hidden" }}>
-                  <div style={{ background: "#03082e", padding: "1rem 1.4rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontFamily: "'Bebas Neue'", fontSize: "1.3rem", color: "white", letterSpacing: 1 }}>Points Leaderboard</span>
-                    <button onClick={() => setActiveTab("members")} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans'", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: "#C8102E" }}>
-                      View all →
-                    </button>
-                  </div>
-                  <div style={{ padding: "0.5rem 0" }}>
-                    {dataLoading ? (
-                      <div style={{ padding: "2rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>Loading…</div>
-                    ) : members.length === 0 ? (
-                      <div style={{ padding: "2rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>No members yet.</div>
-                    ) : members.slice(0, 8).map((m, i) => (
-                      <div key={m.id} style={{
-                        display: "flex", alignItems: "center", gap: "1rem",
-                        padding: "0.75rem 1.4rem",
-                        borderBottom: i < members.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none",
-                        transition: "background 0.15s",
-                      }}
-                        onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
-                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                      >
-                        <span style={{
-                          fontFamily: "'Bebas Neue'", fontSize: "1.2rem",
-                          color: i === 0 ? "#C8102E" : i === 1 ? "#7b3fa0" : i === 2 ? "#b8600a" : "#ccc",
-                          minWidth: 24, letterSpacing: 1,
-                        }}>{i + 1}</span>
-                        <div style={{
-                          width: 34, height: 34, borderRadius: "50%",
-                          background: "linear-gradient(135deg,#03082e,#C8102E)",
-                          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                        }}>
-                          <span style={{ fontFamily: "'Bebas Neue'", color: "white", fontSize: "1rem" }}>
-                            {memberInitials(m)}
-                          </span>
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.9rem", color: "#03082e" }}>
-                            {m.name}
-                          </div>
-                          <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa" }}>{m.membership?.planName ?? "No plan"}</div>
-                        </div>
-                        <span className={`badge badge-${memberStatus(m)}`}>{(m.membership?.status ?? "—")}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Recent events summary */}
-                <div style={{ background: "white", borderRadius: 10, border: "1px solid rgba(0,0,0,0.07)", boxShadow: "0 2px 16px rgba(0,0,0,0.06)", overflow: "hidden" }}>
-                  <div style={{ background: "#03082e", padding: "1rem 1.4rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontFamily: "'Bebas Neue'", fontSize: "1.3rem", color: "white", letterSpacing: 1 }}>Recent Events</span>
-                    <button onClick={() => setActiveTab("events")} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans'", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: "#C8102E" }}>
-                      View all →
-                    </button>
-                  </div>
-                  <div style={{ padding: "0.5rem 0" }}>
-                    {dataLoading ? (
-                      <div style={{ padding: "2rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>Loading…</div>
-                    ) : events.length === 0 ? (
-                      <div style={{ padding: "2rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>No events yet.</div>
-                    ) : events.slice(0, 5).map((ev, i) => (
-                      <div key={ev.id} style={{
-                        display: "flex", alignItems: "center", gap: "1rem",
-                        padding: "0.85rem 1.4rem",
-                        borderBottom: i < Math.min(events.length, 5) - 1 ? "1px solid rgba(0,0,0,0.04)" : "none",
-                        borderLeft: "3px solid #C8102E",
-                      }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.88rem", color: "#03082e" }}>{ev.title}</div>
-                          <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa", marginTop: 2 }}>
-                            {ev.eventDate ? new Date(ev.eventDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: "right", flexShrink: 0 }}>
-                          <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.3rem", color: "#03082e", letterSpacing: 1 }}>{ev.pointsValue ?? 0}</div>
-                          <div style={{ fontFamily: "'DM Sans'", fontSize: 10, color: "#aaa", letterSpacing: 1 }}>pts</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#555", marginBottom: "0.3rem" }}>Email *</label>
+              <input type="email" required value={createForm.email} onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))} placeholder="member@email.com" style={inputStyle} />
             </div>
-          )}
-
-          {/* ══ MEMBERS TAB ══ */}
-          {activeTab === "members" && (
-            <div style={{ ...anim(0.05) }}>
-              {/* Toolbar */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "1rem" }}>
-                <div>
-                  <div className="section-tag" style={{ marginBottom: "0.3rem" }}>Roster</div>
-                  <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "2rem", color: "#03082e", letterSpacing: 2 }}>
-                    All Members
-                  </h2>
-                </div>
-                <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
-                  {/* Search */}
-                  <div style={{ position: "relative" }}>
-                    <svg style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)" }} viewBox="0 0 16 16" fill="none" width={14} height={14}>
-                      <circle cx="6.5" cy="6.5" r="5" stroke="#aaa" strokeWidth="1.5"/>
-                      <path d="M10 10l3.5 3.5" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                    <input className="search-input" placeholder="Search members…" value={search} onChange={e => setSearch(e.target.value)} />
-                  </div>
-                  {/* Filter */}
-                  {["All", "Active", "Inactive", "Pending"].map(s => (
-                    <button key={s} onClick={() => setFilter(s)} style={{
-                      background: filterStatus === s ? "#03082e" : "white",
-                      color: filterStatus === s ? "white" : "#555",
-                      border: "1.5px solid rgba(0,0,0,0.1)", borderRadius: 6,
-                      padding: "0.5rem 1rem", cursor: "pointer",
-                      fontFamily: "'DM Sans'", fontWeight: 700, fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase",
-                      transition: "all 0.2s",
-                    }}>{s}</button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Table */}
-              <div style={{ background: "white", borderRadius: 10, border: "1px solid rgba(0,0,0,0.07)", boxShadow: "0 2px 16px rgba(0,0,0,0.06)", overflow: "hidden" }}>
-                {/* Header */}
-                <div className="table-header" style={{ borderRadius: "10px 10px 0 0" }}>
-                  {["Member", "Email", "Role", "Status", "Plan", "", ""].map((h, i) => (
-                    <span key={i} style={{
-                      fontFamily: "'DM Sans'", fontSize: 10, fontWeight: 700,
-                      letterSpacing: 2, textTransform: "uppercase",
-                      color: "rgba(255,255,255,0.5)",
-                    }} className={i >= 2 && i <= 4 ? "hide-mobile" : ""}>
-                      {h}
-                    </span>
-                  ))}
-                </div>
-
-                {/* Rows */}
-                {dataLoading ? (
-                  <div style={{ padding: "3rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>Loading members…</div>
-                ) : filtered.length === 0 ? (
-                  <div style={{ padding: "3rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>
-                    No members match your search.
-                  </div>
-                ) : filtered.map(m => (
-                  <div key={m.id} className="member-row">
-                    {/* Name */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-                        background: "linear-gradient(135deg,#03082e,#C8102E)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                      }}>
-                        <span style={{ fontFamily: "'Bebas Neue'", color: "white", fontSize: "0.95rem" }}>
-                          {memberInitials(m)}
-                        </span>
-                      </div>
-                      <div>
-                        <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.9rem", color: "#03082e" }}>{m.name}</div>
-                        <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa" }}>{m.id.slice(0, 8)}…</div>
-                      </div>
-                    </div>
-
-                    {/* Email */}
-                    <div style={{ fontFamily: "'DM Sans'", fontSize: "0.82rem", color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {m.email}
-                    </div>
-
-                    {/* Role */}
-                    <div className="hide-mobile" style={{ fontFamily: "'DM Sans'", fontSize: "0.85rem", color: "#555" }}>{m.role}</div>
-
-                    {/* Status badge */}
-                    <div>
-                      <span className={`badge badge-${memberStatus(m)}`}>{m.membership?.status ?? "—"}</span>
-                    </div>
-
-                    {/* Plan */}
-                    <div className="hide-mobile" style={{ fontFamily: "'DM Sans'", fontSize: "0.85rem", color: "#555" }}>{m.membership?.planName ?? "—"}</div>
-
-                    {/* View button */}
-                    <button onClick={() => setSelected(m)} style={{
-                      background: "none", border: "1.5px solid rgba(0,0,0,0.1)", borderRadius: 6,
-                      padding: "0.35rem 0.75rem", cursor: "pointer",
-                      fontFamily: "'DM Sans'", fontWeight: 700, fontSize: 11, letterSpacing: 1.5,
-                      textTransform: "uppercase", color: "#03082e", transition: "all 0.2s",
-                    }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = "#C8102E"; e.currentTarget.style.color = "#C8102E"; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(0,0,0,0.1)"; e.currentTarget.style.color = "#03082e"; }}
-                    >
-                      View
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ fontFamily: "'DM Sans'", fontSize: 12, color: "#bbb", marginTop: "0.75rem", textAlign: "right" }}>
-                Showing {filtered.length} of {members.length} members
-              </div>
+            <div>
+              <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#555", marginBottom: "0.3rem" }}>Name</label>
+              <input value={createForm.name} onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" style={inputStyle} />
             </div>
-          )}
-
-          {/* ══ EVENTS TAB ══ */}
-          {activeTab === "events" && (
-            <div style={{ ...anim(0.05) }}>
-              <div style={{ marginBottom: "1.5rem" }}>
-                <div className="section-tag" style={{ marginBottom: "0.3rem" }}>Event History</div>
-                <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "2rem", color: "#03082e", letterSpacing: 2 }}>Recent Events</h2>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                {dataLoading ? (
-                  <div style={{ padding: "3rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>Loading events…</div>
-                ) : events.length === 0 ? (
-                  <div style={{ padding: "3rem", textAlign: "center", fontFamily: "'DM Sans'", color: "#bbb" }}>No events yet.</div>
-                ) : events.map((ev) => (
-                  <div key={ev.id} style={{
-                    background: "white", borderRadius: 10,
-                    border: "1px solid rgba(0,0,0,0.07)",
-                    borderLeft: "4px solid #C8102E",
-                    padding: "1.2rem 1.5rem",
-                    display: "flex", alignItems: "center", gap: "1.5rem",
-                    boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
-                  }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.3rem", color: "#03082e", letterSpacing: 1 }}>{ev.title}</div>
-                      <div style={{ display: "flex", gap: "1rem", marginTop: "0.3rem", alignItems: "center" }}>
-                        <span style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa" }}>
-                          {ev.eventDate ? new Date(ev.eventDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
-                        </span>
-                      </div>
-                      {ev.description && (
-                        <div style={{ fontFamily: "'DM Sans'", fontSize: 12, color: "#888", marginTop: "0.4rem" }}>{ev.description}</div>
-                      )}
-                    </div>
-                    <div style={{ textAlign: "center", flexShrink: 0 }}>
-                      <div style={{ fontFamily: "'Bebas Neue'", fontSize: "2.4rem", color: "#03082e", letterSpacing: 1, lineHeight: 1 }}>{ev.pointsValue ?? 0}</div>
-                      <div style={{ fontFamily: "'DM Sans'", fontSize: 10, color: "#aaa", letterSpacing: 1.5, textTransform: "uppercase" }}>Points</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div>
+              <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#555", marginBottom: "0.3rem" }}>Password</label>
+              <input type="password" value={createForm.password} onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))} placeholder="Optional" style={inputStyle} />
             </div>
-          )}
-
-          {/* ══ ANNOUNCEMENTS TAB ══ */}
-          {activeTab === "announcements" && (
-            <div style={{ ...anim(0.05) }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
-                <div>
-                  <div className="section-tag" style={{ marginBottom: "0.3rem" }}>Member Communications</div>
-                  <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "2rem", color: "#03082e", letterSpacing: 2 }}>Announcements</h2>
-                </div>
-                <button onClick={() => setShowForm(f => !f)} style={{
-                  background: "#C8102E", color: "white",
-                  border: "none", borderRadius: 6,
-                  padding: "0.75rem 1.5rem", cursor: "pointer",
-                  fontFamily: "'DM Sans'", fontWeight: 700,
-                  fontSize: 12, letterSpacing: 2, textTransform: "uppercase",
-                  boxShadow: "0 6px 20px rgba(200,16,46,0.3)",
-                  transition: "all 0.2s",
-                }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#a00d25"}
-                  onMouseLeave={e => e.currentTarget.style.background = "#C8102E"}
-                >
-                  {showAnnounceForm ? "Cancel" : "+ New Announcement"}
-                </button>
-              </div>
-
-              {/* New announcement form */}
-              {showAnnounceForm && (
-                <div style={{
-                  background: "white", borderRadius: 10,
-                  border: "1px solid rgba(0,0,0,0.07)",
-                  borderTop: "4px solid #C8102E",
-                  boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
-                  padding: "1.75rem", marginBottom: "1.5rem",
-                }}>
-                  <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.4rem", color: "#03082e", letterSpacing: 1, marginBottom: "1.2rem" }}>
-                    New Announcement
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "1rem" }}>
-                      <div>
-                        <label style={{ fontFamily: "'DM Sans'", fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#555", display: "block", marginBottom: "0.4rem" }}>Title</label>
-                        <input className="form-input" placeholder="Announcement title…" value={newAnnounce.title} onChange={e => setNewAnnounce(a => ({ ...a, title: e.target.value }))} />
-                      </div>
-                      <div>
-                        <label style={{ fontFamily: "'DM Sans'", fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#555", display: "block", marginBottom: "0.4rem" }}>Tag</label>
-                        <input className="form-input" placeholder="e.g. Events, Conference…" value={newAnnounce.tag} onChange={e => setNewAnnounce(a => ({ ...a, tag: e.target.value }))} />
-                      </div>
-                    </div>
-                    <div>
-                      <label style={{ fontFamily: "'DM Sans'", fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#555", display: "block", marginBottom: "0.4rem" }}>Body</label>
-                      <textarea className="form-input" rows={4} placeholder="Write your announcement…" value={newAnnounce.body} onChange={e => setNewAnnounce(a => ({ ...a, body: e.target.value }))} style={{ resize: "vertical", minHeight: 100 }} />
-                    </div>
-                    <button onClick={handleAddAnnouncement} style={{
-                      background: "#03082e", color: "white", border: "none", borderRadius: 6,
-                      padding: "0.8rem 2rem", cursor: "pointer", alignSelf: "flex-start",
-                      fontFamily: "'DM Sans'", fontWeight: 700, fontSize: 12, letterSpacing: 2, textTransform: "uppercase",
-                      transition: "background 0.2s",
-                    }}
-                      onMouseEnter={e => e.currentTarget.style.background = "#060f45"}
-                      onMouseLeave={e => e.currentTarget.style.background = "#03082e"}
-                    >
-                      Publish Announcement
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Announcement list */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                {announcements.map(a => (
-                  <div key={a.id} style={{
-                    background: "white", borderRadius: 10,
-                    border: "1px solid rgba(0,0,0,0.07)",
-                    borderLeft: "4px solid #C8102E",
-                    padding: "1.2rem 1.4rem",
-                    boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.6rem", flexWrap: "wrap", gap: "0.5rem" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.7rem", flexWrap: "wrap" }}>
-                        {a.tag && (
-                          <span style={{
-                            fontFamily: "'DM Sans'", fontSize: 10, fontWeight: 700,
-                            letterSpacing: 1.5, textTransform: "uppercase",
-                            color: "#C8102E", background: "rgba(200,16,46,0.08)",
-                            padding: "0.2rem 0.7rem", borderRadius: 10,
-                          }}>{a.tag}</span>
-                        )}
-                        <span style={{ fontFamily: "'Bebas Neue'", fontSize: "1.15rem", color: "#03082e", letterSpacing: 1 }}>{a.title}</span>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                        <span style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#bbb" }}>{a.date}</span>
-                        <button onClick={() => handleDeleteAnnouncement(a.id)} style={{
-                          background: "none", border: "1.5px solid rgba(200,16,46,0.2)", borderRadius: 6,
-                          padding: "0.25rem 0.65rem", cursor: "pointer",
-                          fontFamily: "'DM Sans'", fontWeight: 700, fontSize: 10,
-                          letterSpacing: 1.5, textTransform: "uppercase", color: "#C8102E",
-                          transition: "all 0.2s",
-                        }}
-                          onMouseEnter={e => { e.currentTarget.style.background = "#C8102E"; e.currentTarget.style.color = "white"; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "#C8102E"; }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                    <p style={{ fontFamily: "'DM Sans'", fontSize: "0.9rem", color: "#555", lineHeight: 1.75, fontWeight: 300 }}>
-                      {a.body}
-                    </p>
-                  </div>
-                ))}
-              </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+              <button type="submit" disabled={creating} style={{ ...btnBase, background: creating ? "#ccc" : "#03082e", color: "white", padding: "0.65rem 1.2rem", fontSize: 11 }}>
+                {creating ? "Creating…" : "Create"}
+              </button>
+              {createError && <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#dc2626" }}>{createError}</span>}
             </div>
-          )}
-        </div>
+          </form>
+        )}
       </div>
 
-      {/* ── Member detail modal ── */}
-      {selectedMember && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 500,
-          background: "rgba(2,6,25,0.85)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          padding: "1.5rem",
-        }} onClick={() => setSelected(null)}>
-          <div style={{
-            background: "white", borderRadius: 14,
-            width: "100%", maxWidth: 520,
-            overflow: "hidden",
-            boxShadow: "0 32px 80px rgba(0,0,0,0.4)",
-            animation: "none",
-          }} onClick={e => e.stopPropagation()}>
+      <div style={{ display: "flex", gap: "1rem", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+        <input
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+          placeholder="Search name or email…"
+          style={{ flex: 1, minWidth: 220, padding: "0.7rem 1rem", borderRadius: 6, border: "1.5px solid rgba(0,0,0,0.12)", fontFamily: "'DM Sans', sans-serif", fontSize: 13, outline: "none" }}
+        />
+        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#aaa", whiteSpace: "nowrap" }}>
+          {filtered.length} member{filtered.length !== 1 ? "s" : ""}
+        </span>
+      </div>
 
-            {/* Modal header */}
-            <div style={{
-              background: "linear-gradient(135deg,#03082e,#1b040a)",
-              padding: "1.5rem 1.75rem",
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                <div style={{
-                  width: 48, height: 48, borderRadius: "50%",
-                  background: "linear-gradient(135deg,#C8102E,#03082e)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  border: "2px solid rgba(255,255,255,0.15)",
-                }}>
-                  <span style={{ fontFamily: "'Bebas Neue'", color: "white", fontSize: "1.3rem" }}>
-                    {memberInitials(selectedMember)}
-                  </span>
-                </div>
-                <div>
-                  <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.5rem", color: "white", letterSpacing: 1 }}>
-                    {selectedMember.name}
-                  </div>
-                  <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
-                    {selectedMember.role}
-                  </div>
-                </div>
-              </div>
-              <button onClick={() => setSelected(null)} style={{
-                background: "rgba(255,255,255,0.08)", border: "none", borderRadius: "50%",
-                width: 32, height: 32, cursor: "pointer", color: "white",
-                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
-              }}>×</button>
+      {actionError && (
+        <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, padding: "0.7rem 1rem", marginBottom: "1rem", fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#dc2626" }}>
+          {actionError}
+        </div>
+      )}
+
+      {loading ? (
+        <p style={{ fontFamily: "'DM Sans', sans-serif", color: "#aaa", fontSize: 14 }}>Loading members…</p>
+      ) : filtered.length === 0 ? (
+        <p style={{ fontFamily: "'DM Sans', sans-serif", color: "#aaa", fontSize: 14 }}>No members found.</p>
+      ) : (
+        <div style={{ overflowX: "auto", borderRadius: 10, border: "1px solid rgba(0,0,0,0.07)", background: "white" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ background: "#f8f7f5" }}>
+              <tr>
+                <th style={thStyle}>Name</th>
+                <th style={thStyle}>Email</th>
+                <th style={thStyle}>Status</th>
+                <th style={thStyle}>Plan</th>
+                <th style={thStyle}>Expires</th>
+                <th style={thStyle}>Days Left</th>
+                <th style={thStyle}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(m => {
+                const days = daysLeft(m.membership?.currentPeriodEnd);
+                const expiring = days !== null && days <= 14 && m.membership?.status === "ACTIVE";
+                const isActive = ["ACTIVE", "PAST_DUE"].includes(m.membership?.status);
+                return (
+                  <tr key={m.id}
+                    onMouseEnter={e => e.currentTarget.style.background = "#fafaf9"}
+                    onMouseLeave={e => e.currentTarget.style.background = ""}
+                  >
+                    <td style={tdStyle}>
+                      <div style={{ fontWeight: 600 }}>{m.name || "—"}</div>
+                      <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>{m.role === "ADMIN" ? "Admin" : "Member"}</div>
+                    </td>
+                    <td style={{ ...tdStyle, color: "#555" }}>{m.email}</td>
+                    <td style={tdStyle}><Badge status={m.membership?.status ?? "NONE"} /></td>
+                    <td style={{ ...tdStyle, color: "#555" }}>{m.membership?.planName || "—"}</td>
+                    <td style={{ ...tdStyle, color: "#555" }}>{fmt(m.membership?.currentPeriodEnd)}</td>
+                    <td style={tdStyle}>
+                      {days !== null
+                        ? <span style={{ color: expiring ? "#ea580c" : "#03082e", fontWeight: expiring ? 700 : 400 }}>{days}d</span>
+                        : "—"}
+                    </td>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                      <div style={{ display: "flex", gap: "0.4rem" }}>
+                        {isActive && (
+                          <button disabled={!!working} onClick={() => handleRevoke(m)} style={{ ...btnBase, background: "rgba(249,115,22,0.1)", color: "#ea580c" }}>
+                            {working === m.id + "_revoke" ? "…" : "Revoke"}
+                          </button>
+                        )}
+                        {confirmDelete === m.id ? (
+                          <>
+                            <button disabled={!!working} onClick={() => handleDelete(m.id)} style={{ ...btnBase, background: "#dc2626", color: "white" }}>
+                              {working === m.id + "_delete" ? "…" : "Confirm"}
+                            </button>
+                            <button onClick={() => setConfirmDelete(null)} style={{ ...btnBase, background: "rgba(0,0,0,0.06)", color: "#555" }}>Cancel</button>
+                          </>
+                        ) : (
+                          <button disabled={!!working} onClick={() => setConfirmDelete(m.id)} style={{ ...btnBase, background: "rgba(239,68,68,0.08)", color: "#dc2626" }}>Delete</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── ATTENDANCE TAB ────────────────────────────────────────────────────────────
+function AttendanceTab({ members }) {
+  const [form, setForm] = useState({ userId: "", eventName: "", date: new Date().toISOString().split("T")[0], points: 1 });
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState("");
+  const [error, setError] = useState("");
+  const [records, setRecords] = useState([]);
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [loadingRecords, setLoadingRecords] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editPoints, setEditPoints] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
+
+  useEffect(() => {
+    if (!form.userId) { setRecords([]); setTotalPoints(0); return; }
+    setLoadingRecords(true);
+    getMemberAttendance(form.userId)
+      .then(d => { setRecords(d.records ?? []); setTotalPoints(d.totalPoints ?? 0); })
+      .catch(() => {})
+      .finally(() => setLoadingRecords(false));
+  }, [form.userId]);
+
+  const inputStyle = { width: "100%", padding: "0.75rem 1rem", borderRadius: 6, border: "1.5px solid rgba(0,0,0,0.12)", fontFamily: "'DM Sans', sans-serif", fontSize: 13, outline: "none" };
+  const labelStyle = { display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2.5, textTransform: "uppercase", color: "#555", marginBottom: "0.4rem" };
+  const thStyle = { fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#888", padding: "0.6rem 0.75rem", textAlign: "left", borderBottom: "1px solid rgba(0,0,0,0.08)" };
+  const tdStyle = { fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#03082e", padding: "0.65rem 0.75rem", borderBottom: "1px solid rgba(0,0,0,0.05)", verticalAlign: "middle" };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.userId) { setError("Please select a member."); return; }
+    setError(""); setSuccess(""); setSubmitting(true);
+    try {
+      await recordAttendance({ ...form, points: Number(form.points), date: new Date(form.date).toISOString() });
+      setSuccess(`Attendance recorded for ${members.find(m => m.id === form.userId)?.name || "member"}.`);
+      setForm(f => ({ ...f, eventName: "" }));
+      const d = await getMemberAttendance(form.userId);
+      setRecords(d.records ?? []); setTotalPoints(d.totalPoints ?? 0);
+    } catch (err) {
+      setError(err.message || "Failed to record attendance.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  async function handleEditSave(record) {
+    try {
+      await updateAttendance({ id: record.id, points: Number(editPoints) });
+      const d = await getMemberAttendance(form.userId);
+      setRecords(d.records ?? []); setTotalPoints(d.totalPoints ?? 0);
+      setEditingId(null);
+    } catch (err) {
+      setError(err.message || "Failed to update record.");
+    }
+  }
+
+  async function handleDeleteRecord(id) {
+    setDeletingId(id);
+    try {
+      await deleteAttendance(id);
+      const d = await getMemberAttendance(form.userId);
+      setRecords(d.records ?? []); setTotalPoints(d.totalPoints ?? 0);
+    } catch (err) {
+      setError(err.message || "Failed to delete record.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", alignItems: "start" }}>
+      <div>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 3, textTransform: "uppercase", color: "#888", marginBottom: "1.25rem" }}>Record Attendance</div>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          <div>
+            <label style={labelStyle}>Member</label>
+            <select value={form.userId} onChange={e => setForm(f => ({ ...f, userId: e.target.value }))} style={{ ...inputStyle, background: "white" }} required>
+              <option value="">Select a member…</option>
+              {members.map(m => (
+                <option key={m.id} value={m.id}>{m.name || m.email} {m.membership?.status ? `(${m.membership.status})` : "(no membership)"}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Event / Meeting Name</label>
+            <input value={form.eventName} onChange={e => setForm(f => ({ ...f, eventName: e.target.value }))} placeholder="e.g. Weekly Meeting — Week 5" style={inputStyle} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div>
+              <label style={labelStyle}>Date</label>
+              <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputStyle} required />
             </div>
-
-            {/* Modal body */}
-            <div style={{ padding: "1.75rem" }}>
-              {/* Points highlight */}
-              <div style={{
-                background: "linear-gradient(135deg,rgba(200,16,46,0.06),rgba(3,8,46,0.04))",
-                border: "1px solid rgba(200,16,46,0.15)",
-                borderRadius: 10, padding: "1.2rem",
-                display: "flex", justifyContent: "space-around",
-                marginBottom: "1.5rem", textAlign: "center",
-              }}>
-                {[
-                  { label: "Status",  value: selectedMember.membership?.status ?? "—" },
-                  { label: "Plan",    value: selectedMember.membership?.planName ?? "—" },
-                ].map((s, i) => (
-                  <div key={i}>
-                    <div style={{ fontFamily: "'Bebas Neue'", fontSize: "2.4rem", color: "#C8102E", letterSpacing: 1, lineHeight: 1 }}>{s.value}</div>
-                    <div style={{ fontFamily: "'DM Sans'", fontSize: 10, color: "#aaa", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>{s.label}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Details grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
-                {[
-                  { label: "Email",    value: selectedMember.email },
-                  { label: "Role",     value: selectedMember.role  },
-                  { label: "Plan",     value: selectedMember.membership?.planName ?? "—" },
-                  { label: "Status",   value: selectedMember.membership?.status  ?? "—" },
-                  { label: "Member since", value: selectedMember.createdAt ? new Date(selectedMember.createdAt).toLocaleDateString() : "—" },
-                ].map((f, i) => (
-                  <div key={i} style={{
-                    background: "#f8f7f5", borderRadius: 8, padding: "0.75rem 1rem",
-                    gridColumn: i === 0 ? "1 / -1" : "auto",
-                  }}>
-                    <div style={{ fontFamily: "'DM Sans'", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#bbb", marginBottom: "0.2rem" }}>{f.label}</div>
-                    <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.9rem", color: "#03082e" }}>{f.value}</div>
-                  </div>
-                ))}
-              </div>
+            <div>
+              <label style={labelStyle}>Points</label>
+              <input type="number" min={1} max={100} value={form.points} onChange={e => setForm(f => ({ ...f, points: e.target.value }))} style={inputStyle} required />
             </div>
+          </div>
+          {error   && <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#dc2626" }}>{error}</p>}
+          {success && <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#16a34a" }}>{success}</p>}
+          <button type="submit" disabled={submitting} style={{ background: submitting ? "#ccc" : "#C8102E", color: "white", padding: "0.85rem 2rem", borderRadius: 5, border: "none", cursor: submitting ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: 2, textTransform: "uppercase", boxShadow: submitting ? "none" : "0 6px 20px rgba(200,16,46,0.3)" }}>
+            {submitting ? "Recording…" : "Record Attendance"}
+          </button>
+        </form>
+      </div>
+
+      <div>
+        {form.userId ? (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "1rem" }}>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 3, textTransform: "uppercase", color: "#888" }}>
+                Records — {members.find(m => m.id === form.userId)?.name || "Member"}
+              </div>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.6rem", color: "#C8102E", letterSpacing: 2 }}>{totalPoints} pts</div>
+            </div>
+            {loadingRecords ? (
+              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#aaa" }}>Loading…</p>
+            ) : records.length === 0 ? (
+              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#aaa" }}>No records yet.</p>
+            ) : (
+              <div style={{ background: "white", borderRadius: 8, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead style={{ background: "#f8f7f5" }}>
+                    <tr>
+                      <th style={thStyle}>Event</th>
+                      <th style={thStyle}>Date</th>
+                      <th style={thStyle}>Pts</th>
+                      <th style={thStyle}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {records.map(r => (
+                      <tr key={r.id}>
+                        <td style={tdStyle}>{r.eventName || "—"}</td>
+                        <td style={tdStyle}>{fmt(r.date)}</td>
+                        <td style={tdStyle}>
+                          {editingId === r.id ? (
+                            <input type="number" min={0} max={100} value={editPoints} onChange={e => setEditPoints(e.target.value)}
+                              style={{ width: 52, padding: "0.2rem 0.4rem", border: "1.5px solid #C8102E", borderRadius: 4, fontFamily: "'DM Sans', sans-serif", fontSize: 12 }} autoFocus />
+                          ) : r.points}
+                        </td>
+                        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                          {editingId === r.id ? (
+                            <div style={{ display: "flex", gap: "0.3rem" }}>
+                              <button onClick={() => handleEditSave(r)} style={{ border: "none", borderRadius: 3, background: "#16a34a", color: "white", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, padding: "0.25rem 0.5rem", cursor: "pointer" }}>Save</button>
+                              <button onClick={() => setEditingId(null)} style={{ border: "none", borderRadius: 3, background: "rgba(0,0,0,0.06)", color: "#555", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, padding: "0.25rem 0.5rem", cursor: "pointer" }}>✕</button>
+                            </div>
+                          ) : (
+                            <div style={{ display: "flex", gap: "0.3rem" }}>
+                              <button onClick={() => { setEditingId(r.id); setEditPoints(String(r.points)); }} style={{ border: "none", borderRadius: 3, background: "rgba(0,0,0,0.06)", color: "#555", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, padding: "0.25rem 0.5rem", cursor: "pointer" }}>Edit</button>
+                              <button disabled={deletingId === r.id} onClick={() => handleDeleteRecord(r.id)} style={{ border: "none", borderRadius: 3, background: "rgba(239,68,68,0.08)", color: "#dc2626", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, padding: "0.25rem 0.5rem", cursor: "pointer" }}>
+                                {deletingId === r.id ? "…" : "Del"}
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#bbb", marginTop: "2rem" }}>
+            Select a member to view their attendance records.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── EVENTS TAB ────────────────────────────────────────────────────────────────
+function EventsTab() {
+  const blankForm = { title: "", description: "", eventDate: new Date().toISOString().split("T")[0], pointsValue: 1 };
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState(blankForm);
+  const [editingId, setEditingId] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const load = useCallback(() => {
+    setLoading(true);
+    getAllEvents()
+      .then(setEvents)
+      .catch(() => setError("Failed to load events."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  function startEdit(ev) {
+    setEditingId(ev.id);
+    setForm({ title: ev.title, description: ev.description ?? "", eventDate: new Date(ev.eventDate).toISOString().split("T")[0], pointsValue: ev.pointsValue });
+    setError(""); setSuccess("");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(blankForm);
+    setError(""); setSuccess("");
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError(""); setSuccess(""); setSubmitting(true);
+    try {
+      const payload = { ...form, eventDate: new Date(form.eventDate).toISOString(), pointsValue: Number(form.pointsValue) };
+      if (editingId) {
+        await updateEvent({ id: editingId, ...payload });
+        setSuccess("Event updated.");
+        setEditingId(null);
+      } else {
+        await createEvent(payload);
+        setSuccess("Event created.");
+      }
+      setForm(blankForm);
+      load();
+    } catch (err) {
+      setError(err.message || "Failed to save event.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(id) {
+    setDeletingId(id);
+    try {
+      await deleteEvent(id);
+      setConfirmDelete(null);
+      load();
+    } catch (err) {
+      setError(err.message || "Failed to delete event.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const inputStyle = { width: "100%", padding: "0.75rem 1rem", borderRadius: 6, border: "1.5px solid rgba(0,0,0,0.12)", fontFamily: "'DM Sans', sans-serif", fontSize: 13, outline: "none" };
+  const labelStyle = { display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2.5, textTransform: "uppercase", color: "#555", marginBottom: "0.4rem" };
+  const thStyle = { fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#888", padding: "0.75rem 1rem", textAlign: "left", borderBottom: "1px solid rgba(0,0,0,0.08)" };
+  const tdStyle = { fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#03082e", padding: "0.85rem 1rem", borderBottom: "1px solid rgba(0,0,0,0.05)", verticalAlign: "middle" };
+  const btnBase = { border: "none", borderRadius: 4, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", padding: "0.3rem 0.7rem" };
+
+  const upcoming = events.filter(e => new Date(e.eventDate) >= new Date());
+  const past     = events.filter(e => new Date(e.eventDate) <  new Date());
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: "2.5rem", alignItems: "start" }}>
+      <div>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 3, textTransform: "uppercase", color: "#888", marginBottom: "1.25rem" }}>
+          {editingId ? "Edit Event" : "New Event"}
+        </div>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          <div>
+            <label style={labelStyle}>Title</label>
+            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Weekly Meeting — Week 5" style={inputStyle} required maxLength={200} />
+          </div>
+          <div>
+            <label style={labelStyle}>Description (optional)</label>
+            <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Location, agenda, etc." rows={3} style={{ ...inputStyle, resize: "vertical" }} maxLength={2000} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div>
+              <label style={labelStyle}>Date</label>
+              <input type="date" value={form.eventDate} onChange={e => setForm(f => ({ ...f, eventDate: e.target.value }))} style={inputStyle} required />
+            </div>
+            <div>
+              <label style={labelStyle}>Points</label>
+              <input type="number" min={0} max={100} value={form.pointsValue} onChange={e => setForm(f => ({ ...f, pointsValue: e.target.value }))} style={inputStyle} required />
+            </div>
+          </div>
+          {error   && <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#dc2626" }}>{error}</p>}
+          {success && <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#16a34a" }}>{success}</p>}
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            <button type="submit" disabled={submitting} style={{ flex: 1, background: submitting ? "#ccc" : "#C8102E", color: "white", padding: "0.85rem", borderRadius: 5, border: "none", cursor: submitting ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: 2, textTransform: "uppercase", boxShadow: submitting ? "none" : "0 6px 20px rgba(200,16,46,0.3)" }}>
+              {submitting ? "Saving…" : editingId ? "Update Event" : "Create Event"}
+            </button>
+            {editingId && (
+              <button type="button" onClick={cancelEdit} style={{ padding: "0.85rem 1.2rem", borderRadius: 5, border: "1.5px solid rgba(0,0,0,0.12)", background: "white", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: "#555" }}>
+                Cancel
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+
+      <div>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 3, textTransform: "uppercase", color: "#888", marginBottom: "0.75rem" }}>
+          Upcoming ({upcoming.length})
+        </div>
+        {loading ? (
+          <p style={{ fontFamily: "'DM Sans', sans-serif", color: "#aaa", fontSize: 13, marginBottom: "1.5rem" }}>Loading…</p>
+        ) : upcoming.length === 0 ? (
+          <p style={{ fontFamily: "'DM Sans', sans-serif", color: "#aaa", fontSize: 13, marginBottom: "1.5rem" }}>No upcoming events.</p>
+        ) : (
+          <div style={{ background: "white", borderRadius: 8, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden", marginBottom: "2rem" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead style={{ background: "#f8f7f5" }}>
+                <tr>
+                  <th style={thStyle}>Date</th>
+                  <th style={thStyle}>Title</th>
+                  <th style={thStyle}>Pts</th>
+                  <th style={thStyle}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {upcoming.map(ev => (
+                  <tr key={ev.id} onMouseEnter={e => e.currentTarget.style.background = "#fafaf9"} onMouseLeave={e => e.currentTarget.style.background = ""}>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap", color: "#555", fontSize: 12 }}>{fmt(ev.eventDate)}</td>
+                    <td style={tdStyle}>
+                      <div style={{ fontWeight: 600 }}>{ev.title}</div>
+                      {ev.description && <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>{ev.description}</div>}
+                    </td>
+                    <td style={{ ...tdStyle, color: "#C8102E", fontWeight: 700 }}>{ev.pointsValue}</td>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                      <div style={{ display: "flex", gap: "0.4rem" }}>
+                        <button onClick={() => startEdit(ev)} style={{ ...btnBase, background: "rgba(0,0,0,0.06)", color: "#555" }}>Edit</button>
+                        {confirmDelete === ev.id ? (
+                          <>
+                            <button disabled={!!deletingId} onClick={() => handleDelete(ev.id)} style={{ ...btnBase, background: "#dc2626", color: "white" }}>{deletingId === ev.id ? "…" : "Confirm"}</button>
+                            <button onClick={() => setConfirmDelete(null)} style={{ ...btnBase, background: "rgba(0,0,0,0.06)", color: "#555" }}>✕</button>
+                          </>
+                        ) : (
+                          <button onClick={() => setConfirmDelete(ev.id)} style={{ ...btnBase, background: "rgba(239,68,68,0.08)", color: "#dc2626" }}>Del</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {past.length > 0 && (
+          <>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 3, textTransform: "uppercase", color: "#bbb", marginBottom: "0.75rem" }}>
+              Past ({past.length})
+            </div>
+            <div style={{ background: "white", borderRadius: 8, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead style={{ background: "#f8f7f5" }}>
+                  <tr>
+                    <th style={thStyle}>Date</th>
+                    <th style={thStyle}>Title</th>
+                    <th style={thStyle}>Pts</th>
+                    <th style={thStyle}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {past.slice(0, 10).map(ev => (
+                    <tr key={ev.id} onMouseEnter={e => e.currentTarget.style.background = "#fafaf9"} onMouseLeave={e => e.currentTarget.style.background = ""}>
+                      <td style={{ ...tdStyle, whiteSpace: "nowrap", color: "#aaa", fontSize: 12 }}>{fmt(ev.eventDate)}</td>
+                      <td style={{ ...tdStyle, color: "#aaa" }}>{ev.title}</td>
+                      <td style={{ ...tdStyle, color: "#aaa" }}>{ev.pointsValue}</td>
+                      <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                        <div style={{ display: "flex", gap: "0.4rem" }}>
+                          <button onClick={() => startEdit(ev)} style={{ ...btnBase, background: "rgba(0,0,0,0.06)", color: "#555" }}>Edit</button>
+                          {confirmDelete === ev.id ? (
+                            <>
+                              <button disabled={!!deletingId} onClick={() => handleDelete(ev.id)} style={{ ...btnBase, background: "#dc2626", color: "white" }}>{deletingId === ev.id ? "…" : "Confirm"}</button>
+                              <button onClick={() => setConfirmDelete(null)} style={{ ...btnBase, background: "rgba(0,0,0,0.06)", color: "#555" }}>✕</button>
+                            </>
+                          ) : (
+                            <button onClick={() => setConfirmDelete(ev.id)} style={{ ...btnBase, background: "rgba(239,68,68,0.08)", color: "#dc2626" }}>Del</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ─── ANALYTICS TAB ─────────────────────────────────────────────────────────────
+function AnalyticsTab({ members }) {
+  const total    = members.length;
+  const active   = members.filter(m => m.membership?.status === "ACTIVE").length;
+  const pastDue  = members.filter(m => m.membership?.status === "PAST_DUE").length;
+  const noMem    = members.filter(m => !m.membership).length;
+  const expiring = members.filter(m => {
+    const d = daysLeft(m.membership?.currentPeriodEnd);
+    return d !== null && d <= 14 && m.membership?.status === "ACTIVE";
+  }).length;
+
+  const stats = [
+    { label: "Total Members",      value: total,    color: "#03082e" },
+    { label: "Active",             value: active,   color: "#16a34a" },
+    { label: "Past Due",           value: pastDue,  color: "#ea580c" },
+    { label: "No Membership",      value: noMem,    color: "#6b7280" },
+    { label: "Expiring (14 days)", value: expiring, color: "#ca8a04" },
+  ];
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "1rem", marginBottom: "2.5rem" }}>
+        {stats.map(s => (
+          <div key={s.label} style={{ background: "white", borderRadius: 10, border: "1px solid rgba(0,0,0,0.07)", boxShadow: "0 2px 12px rgba(0,0,0,0.04)", padding: "1.25rem 1.5rem", borderTop: `3px solid ${s.color}` }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2.5rem", color: s.color, letterSpacing: 2, lineHeight: 1 }}>{s.value}</div>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#888", fontWeight: 700, marginTop: "0.4rem" }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+      {expiring > 0 && (
+        <div>
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 3, textTransform: "uppercase", color: "#ea580c", marginBottom: "0.75rem" }}>
+            Expiring within 14 days
+          </div>
+          <div style={{ background: "white", borderRadius: 10, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
+            {members
+              .map(m => ({ m, d: daysLeft(m.membership?.currentPeriodEnd) }))
+              .filter(({ m, d }) => d !== null && d <= 14 && m.membership?.status === "ACTIVE")
+              .sort((a, b) => a.d - b.d)
+              .map(({ m, d }, i, arr) => (
+                <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.85rem 1.25rem", borderBottom: i < arr.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
+                  <div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: "#03082e" }}>{m.name || m.email}</div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#aaa", marginTop: 2 }}>{m.email}</div>
+                  </div>
+                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "#ea580c" }}>{d}d left</span>
+                </div>
+              ))}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── ROOT ──────────────────────────────────────────────────────────────────────
+export default function AdminDashboard() {
+  const [tab, setTab] = useState("overview");
+  const [members, setMembers] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadData = useCallback(() => {
+    setLoading(true);
+    Promise.all([getAllMembers(), getAllEvents()])
+      .then(([m, e]) => { setMembers(m); setEvents(e); })
+      .catch(() => setError("Failed to load data."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const TABS = [
+    { key: "overview",   label: "Overview"   },
+    { key: "members",    label: "Members"    },
+    { key: "attendance", label: "Attendance" },
+    { key: "events",     label: "Events"     },
+    { key: "analytics",  label: "Analytics"  },
+  ];
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; width: 100%; }
+        body { font-family: 'DM Sans', sans-serif; background: #f8f7f5; overflow-x: hidden; width: 100%; }
+        #root { width: 100%; }
+        input:focus, select:focus, textarea:focus { border-color: #C8102E !important; box-shadow: 0 0 0 3px rgba(200,16,46,0.1); }
+        @media (max-width: 900px)  { .admin-stats { grid-template-columns: 1fr 1fr !important; } }
+        @media (max-width: 480px)  { .admin-stats { grid-template-columns: 1fr !important; } }
+      `}</style>
+
+      <Navbar active="" alwaysSolid />
+
+      <div style={{ paddingTop: 68, minHeight: "100vh", background: "#f8f7f5" }}>
+        {/* ── Header ── */}
+        <div style={{ background: "linear-gradient(152deg, #020619 0%, #04124a 55%, #1b040a 100%)", padding: "2.5rem 2rem 2rem", position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", inset: 0, opacity: 0.032, backgroundImage: "linear-gradient(white 1px,transparent 1px),linear-gradient(90deg,white 1px,transparent 1px)", backgroundSize: "64px 64px" }} />
+          <div style={{ maxWidth: 1200, margin: "0 auto", position: "relative", zIndex: 1, display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
+            <div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <span style={{ width: 20, height: 2, background: "#C8102E", display: "block", borderRadius: 2 }} />
+                <span style={{ fontFamily: "'DM Sans'", color: "#C8102E", fontSize: 11, letterSpacing: 4, textTransform: "uppercase", fontWeight: 700 }}>Admin Portal</span>
+              </div>
+              <h1 style={{ fontFamily: "'Bebas Neue'", fontSize: "clamp(2rem, 5vw, 3.2rem)", color: "white", letterSpacing: 2, lineHeight: 1 }}>
+                FITP UH Admin Dashboard
+              </h1>
+              <p style={{ fontFamily: "'DM Sans'", color: "rgba(255,255,255,0.4)", fontSize: "0.88rem", marginTop: "0.3rem" }}>
+                Manage members, events, attendance, staff, and sponsors
+              </p>
+            </div>
+            <a href="/membership" style={{ background: "#C8102E", color: "white", padding: "0.75rem 1.5rem", borderRadius: 6, fontFamily: "'DM Sans'", fontWeight: 700, fontSize: 12, letterSpacing: 2, textTransform: "uppercase", textDecoration: "none", boxShadow: "0 6px 20px rgba(200,16,46,0.35)", transition: "all 0.2s" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "#a00d25"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "#C8102E"; e.currentTarget.style.transform = ""; }}
+            >
+              + Add Member
+            </a>
+          </div>
+        </div>
+
+        {/* ── Tab bar ── */}
+        <div style={{ background: "white", borderBottom: "1px solid rgba(0,0,0,0.07)", position: "sticky", top: 68, zIndex: 10 }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 2rem", display: "flex", overflowX: "auto" }}>
+            {TABS.map(t => <Tab key={t.key} label={t.label} active={tab === t.key} onClick={() => setTab(t.key)} />)}
+          </div>
+        </div>
+
+        {/* ── Content ── */}
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "2.5rem 2rem" }}>
+          {error && (
+            <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "0.9rem 1.2rem", marginBottom: "1.5rem", fontFamily: "'DM Sans'", fontSize: 13, color: "#dc2626" }}>
+              {error}
+            </div>
+          )}
+          {tab === "overview"   && <OverviewTab members={members} events={events} loading={loading} onTabChange={setTab} />}
+          {tab === "members"    && <MembersTab members={members} loading={loading} onRefresh={loadData} />}
+          {tab === "attendance" && <AttendanceTab members={members} />}
+          {tab === "events"     && <EventsTab />}
+          {tab === "analytics"  && <AnalyticsTab members={members} />}
+        </div>
+      </div>
     </>
   );
 }

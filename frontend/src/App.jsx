@@ -1,4 +1,20 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
+import { useAuth } from './context/AuthContext'
+
+function RequireAdmin({ children }) {
+  const { user, loading, refetch } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  if (loading) return <div style={{ minHeight: "100vh", background: "#f8f7f5" }} />;
+  if (!user || user.role !== 'ADMIN') {
+    navigate('/login', { replace: true });
+    return null;
+  }
+  return children;
+}
 import HomePage from './pages/HomePage'
 import AboutPage from './pages/AboutPage'
 import LeadershipPage from './pages/LeadershipPage'
@@ -10,7 +26,6 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import MemberDashboard from './pages/MemberDashboard'
 import AdminDashboard  from './pages/AdminDashboard'
-import AdminPage       from './pages/AdminPage'
 
 
 export default function App() {
@@ -28,8 +43,8 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/dashboard" element={<MemberDashboard />} />
-          <Route path="/admin"        element={<AdminDashboard />} />
-          <Route path="/admin/manage" element={<AdminPage />} />
+          <Route path="/admin"        element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
+          <Route path="/admin/manage" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
         </Routes>
       </BrowserRouter>
     </div>

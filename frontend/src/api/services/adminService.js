@@ -23,6 +23,11 @@ export async function deleteEvent(id) {
 
 // ─── Members ──────────────────────────────────────────────────────────────────
 
+export async function createMember({ email, name, password }) {
+  const data = await postJson('/api/admin/members', { email, name, password });
+  return data?.data ?? null;
+}
+
 export async function getAllMembers(status) {
   const qs = status ? `?status=${encodeURIComponent(status)}` : '';
   const data = await getJson(`/api/admin/members${qs}`);

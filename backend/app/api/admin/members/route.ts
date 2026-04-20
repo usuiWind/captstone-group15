@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { UserService } from '@/lib/services/userService'
 import { MembershipService } from '@/lib/services/membershipService'
 import { validateRequest, updateMemberSchema } from '@/lib/validation'
+import { repositories } from '@/lib/container'
 import { z } from 'zod'
 
 const userService = new UserService()
@@ -11,6 +12,34 @@ const membershipService = new MembershipService()
 const deleteMemberSchema = z.object({
   id: z.string().uuid('Invalid member ID'),
 })
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    if (session.user.role !== 'ADMIN') return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 })
+
+    let email: string, name: string | undefined, password: string | undefined
+    try {
+      const body = await request.json()
+      email = String(body.email ?? '').trim().toLowerCase()
+      name  = body.name     ? String(body.name).trim()     : undefined
+      password = body.password ? String(body.password)     : undefined
+    } catch {
+      return NextResponse.json({ success: false, error: 'Invalid request body' }, { status: 400 })
+    }
+
+    if (!email) return NextResponse.json({ success: false, error: 'Email is required' }, { status: 400 })
+
+    const user = await repositories.user.create({ email, name, role: 'MEMBER' })
+    if (password) await repositories.user.setPassword(user.id, password)
+
+    return NextResponse.json({ success: true, data: { id: user.id, email: user.email, name: user.name, role: user.role } }, { status: 201 })
+  } catch (error: any) {
+    console.error('Create member error:', error)
+    return NextResponse.json({ success: false, error: error.message || 'Failed to create member' }, { status: 500 })
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
