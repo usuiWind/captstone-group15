@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
+import { getMembership } from "../api/services/membershipService";
+import { getAttendance } from "../api/services/attendanceService";
+import { useAuth } from "../context/AuthContext";
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
 const GlobalStyles = () => (
@@ -69,8 +72,8 @@ const GlobalStyles = () => (
   `}</style>
 );
 
-// ─── REAL API URL ─────────────────────────────────────────────────────────────
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx0StFoRvZh00YfI7nzgj5ZWkKk9IHAY2-rGkb-HMu8CVGpv5vrjs9Kh-cze_prYKJyLA/exec";
+// ─── APPS SCRIPT URL ──────────────────────────────────────────────────────────
+const WEB_APP_URL = import.meta.env.VITE_APPS_SCRIPT_URL ?? "";
 
 // ─── STATIC MOCK DATA (events/announcements — connect later) ─────────────────
 const MOCK_EVENTS = [
@@ -147,23 +150,85 @@ function StatCard({ label, value, sub, accent = "#C8102E", icon }) {
   );
 }
 
+// ─── DATE HELPER ─────────────────────────────────────────────────────────────
+function parseDateParts(dateVal) {
+  const d = new Date(dateVal);
+  return {
+    month: d.toLocaleDateString("en-US", { month: "short" }),
+    day:   String(d.getDate()),
+    year:  String(d.getFullYear()),
+  };
+}
+
+const STATUS_COLOR = {
+  ACTIVE:   "#4caf50",
+  PENDING:  "#ff9800",
+  PAST_DUE: "#f44336",
+  CANCELLED:"#aaa",
+  EXPIRED:  "#aaa",
+};
+
+// ─── FALLBACK when Apps Script doesn't have the member yet ────────────────────
+function buildFallbackMember(email, sessionUser) {
+  const name  = sessionUser?.name || email || "Member";
+  const parts = name.split(" ");
+  return {
+    firstName:        parts[0] || "Member",
+    lastName:         parts.slice(1).join(" "),
+    email:            email || sessionUser?.email || "",
+    major:            "",
+    classification:   "",
+    membershipStatus: "Active",
+    membershipType:   "Member",
+    joinDate:         "",
+    totalPoints:      0,
+    pointsGoal:       100,
+    eventsAttended:   0,
+  };
+}
+
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function MemberDashboard() {
-  const [ready,     setReady]     = useState(false);
-  const [member,    setMember]    = useState(null);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [ready,      setReady]      = useState(false);
+  const [member,     setMember]     = useState(null);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState(false);
+  const [activeTab,  setActiveTab]  = useState("overview");
+  const [attendance, setAttendance] = useState([]);
+  const [stripeMembership, setStripeMembership] = useState(null);
 
-  // ── Fetch real member data from Apps Script Web App ──
+  const { user } = useAuth();
+
+  // ── Fetch Stripe membership + real attendance records ──
+  useEffect(() => {
+    async function loadBackendData() {
+      try {
+        const [membershipResult, attendanceResult] = await Promise.allSettled([
+          getMembership(),
+          getAttendance(),
+        ]);
+        if (membershipResult.status === "fulfilled" && membershipResult.value) {
+          setStripeMembership(membershipResult.value);
+        }
+        if (attendanceResult.status === "fulfilled" && attendanceResult.value?.records) {
+          setAttendance(attendanceResult.value.records);
+        }
+      } catch {
+        // backend data is supplemental; Apps Script profile still loads
+      }
+    }
+    loadBackendData();
+  }, []);
+
+  // ── Fetch member profile from Apps Script Web App ──
   useEffect(() => {
     setTimeout(() => setReady(true), 100);
 
     // Gets the logged-in member's email saved by LoginPage
     const userEmail = localStorage.getItem("fitpEmail") || "";
 
-    if (!userEmail) {
-      setError(true);
+    if (!userEmail || !WEB_APP_URL) {
+      setMember(buildFallbackMember(userEmail, user));
       setLoading(false);
       return;
     }
@@ -186,12 +251,14 @@ export default function MemberDashboard() {
             eventsAttended:   Number(data.eventsAttended) || 0,
           });
         } else {
-          setError(true);
+          // Not in Google Sheet yet — fall back to session data
+          setMember(buildFallbackMember(userEmail, user));
         }
         setLoading(false);
       })
       .catch(() => {
-        setError(true);
+        // Apps Script unreachable — fall back to session data
+        setMember(buildFallbackMember(userEmail, user));
         setLoading(false);
       });
   }, []);
@@ -325,7 +392,7 @@ export default function MemberDashboard() {
                   </div>
                 </div>
 
-                {/* Membership status badge */}
+                {/* Membership status badge — Stripe data preferred */}
                 <div style={{
                   background: "rgba(255,255,255,0.06)",
                   border: "1px solid rgba(255,255,255,0.12)",
@@ -335,12 +402,22 @@ export default function MemberDashboard() {
                   <div style={{ fontFamily: "'DM Sans'", fontSize: 10, letterSpacing: 3, textTransform: "uppercase", color: "rgba(255,255,255,0.4)", marginBottom: "0.3rem" }}>
                     Membership
                   </div>
-                  <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.4rem", color: "#4caf50", letterSpacing: 1 }}>
-                    {member.membershipStatus}
+                  <div style={{
+                    fontFamily: "'Bebas Neue'", fontSize: "1.4rem", letterSpacing: 1,
+                    color: stripeMembership
+                      ? (STATUS_COLOR[stripeMembership.status] || "#4caf50")
+                      : "#4caf50",
+                  }}>
+                    {stripeMembership ? stripeMembership.status : member.membershipStatus}
                   </div>
                   <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: "0.1rem" }}>
-                    {member.membershipType} Member
+                    {stripeMembership ? stripeMembership.planName : member.membershipType} Member
                   </div>
+                  {stripeMembership?.currentPeriodEnd && (
+                    <div style={{ fontFamily: "'DM Sans'", fontSize: 10, color: "rgba(255,255,255,0.25)", marginTop: "0.15rem" }}>
+                      Renews {new Date(stripeMembership.currentPeriodEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -451,31 +528,40 @@ export default function MemberDashboard() {
                     </button>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-                    {MOCK_EVENTS.slice(0, 4).map((ev, i) => (
-                      <div key={i} className="event-row">
-                        <div style={{
-                          flexShrink: 0, width: 38, height: 38, borderRadius: 6,
-                          background: "#03082e",
-                          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                        }}>
-                          <span style={{ fontFamily: "'DM Sans'", fontSize: 8, color: "#C8102E", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
-                            {ev.date.split(" ")[0]}
-                          </span>
-                          <span style={{ fontFamily: "'Bebas Neue'", fontSize: "1.1rem", color: "white", lineHeight: 1 }}>
-                            {ev.date.split(" ")[1].replace(",", "")}
-                          </span>
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.86rem", color: "#03082e", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {ev.name}
+                    {(attendance.length > 0 ? attendance : MOCK_EVENTS).slice(0, 4).map((ev, i) => {
+                      const parts = ev.date ? { month: ev.date.split(" ")[0], day: ev.date.split(" ")[1]?.replace(",","") } : parseDateParts(ev.createdAt || ev.date);
+                      const name  = ev.name || ev.eventName || "Event";
+                      const pts   = ev.points ?? 0;
+                      return (
+                        <div key={ev.id || i} className="event-row">
+                          <div style={{
+                            flexShrink: 0, width: 38, height: 38, borderRadius: 6,
+                            background: "#03082e",
+                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                          }}>
+                            <span style={{ fontFamily: "'DM Sans'", fontSize: 8, color: "#C8102E", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
+                              {parts.month}
+                            </span>
+                            <span style={{ fontFamily: "'Bebas Neue'", fontSize: "1.1rem", color: "white", lineHeight: 1 }}>
+                              {parts.day}
+                            </span>
                           </div>
-                          <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa", marginTop: 1 }}>{ev.type}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.86rem", color: "#03082e", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {name}
+                            </div>
+                          </div>
+                          <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.1rem", color: "#C8102E", letterSpacing: 1, flexShrink: 0 }}>
+                            +{pts}
+                          </div>
                         </div>
-                        <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.1rem", color: "#C8102E", letterSpacing: 1, flexShrink: 0 }}>
-                          +{ev.points}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
+                    {attendance.length === 0 && (
+                      <p style={{ fontFamily: "'DM Sans'", fontSize: 12, color: "#bbb", textAlign: "center", padding: "0.5rem 0" }}>
+                        No attendance records yet.
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -555,53 +641,64 @@ export default function MemberDashboard() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                {MOCK_EVENTS.map((ev, i) => (
-                  <div key={i} style={{
-                    background: "white", borderRadius: 10,
-                    border: "1px solid rgba(0,0,0,0.07)",
-                    borderLeft: `4px solid ${EVENT_TYPE_COLORS[ev.type] || "#C8102E"}`,
-                    padding: "1rem 1.4rem",
-                    display: "flex", alignItems: "center", gap: "1.2rem",
+                {attendance.length === 0 ? (
+                  <div style={{
+                    background: "white", borderRadius: 10, padding: "2.5rem",
+                    border: "1px solid rgba(0,0,0,0.07)", textAlign: "center",
                     boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
-                    transition: "transform 0.2s",
-                  }}
-                    onMouseEnter={e => e.currentTarget.style.transform = "translateX(5px)"}
-                    onMouseLeave={e => e.currentTarget.style.transform = ""}
-                  >
-                    <div style={{
-                      flexShrink: 0, width: 50, background: "#03082e",
-                      borderRadius: 8, padding: "0.35rem 0.4rem", textAlign: "center",
-                    }}>
-                      <div style={{ fontFamily: "'DM Sans'", fontSize: 8, color: "#C8102E", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
-                        {ev.date.split(" ")[0]}
-                      </div>
-                      <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.4rem", color: "white", lineHeight: 1 }}>
-                        {ev.date.split(" ")[1].replace(",", "")}
-                      </div>
-                      <div style={{ fontFamily: "'DM Sans'", fontSize: 8, color: "rgba(255,255,255,0.4)", letterSpacing: 0.5 }}>
-                        {ev.date.split(" ")[2]}
-                      </div>
+                  }}>
+                    <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.4rem", color: "#aaa", letterSpacing: 1, marginBottom: "0.4rem" }}>
+                      No Events Yet
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.95rem", color: "#03082e" }}>{ev.name}</div>
-                      <div style={{ marginTop: "0.3rem" }}>
-                        <span style={{
-                          fontFamily: "'DM Sans'", fontSize: 10, fontWeight: 700,
-                          letterSpacing: 1.5, textTransform: "uppercase",
-                          color: EVENT_TYPE_COLORS[ev.type] || "#C8102E",
-                          background: `${EVENT_TYPE_COLORS[ev.type] || "#C8102E"}15`,
-                          padding: "0.15rem 0.6rem", borderRadius: 10,
-                        }}>{ev.type}</span>
-                      </div>
-                    </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.8rem", color: "#C8102E", letterSpacing: 1, lineHeight: 1 }}>
-                        +{ev.points}
-                      </div>
-                      <div style={{ fontFamily: "'DM Sans'", fontSize: 10, color: "#aaa", letterSpacing: 1 }}>points</div>
-                    </div>
+                    <p style={{ fontFamily: "'DM Sans'", fontSize: "0.88rem", color: "#bbb" }}>
+                      Attendance records will appear here after you check in to events.
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  attendance.map((ev) => {
+                    const { month, day, year } = parseDateParts(ev.date);
+                    return (
+                      <div key={ev.id} style={{
+                        background: "white", borderRadius: 10,
+                        border: "1px solid rgba(0,0,0,0.07)",
+                        borderLeft: "4px solid #C8102E",
+                        padding: "1rem 1.4rem",
+                        display: "flex", alignItems: "center", gap: "1.2rem",
+                        boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
+                        transition: "transform 0.2s",
+                      }}
+                        onMouseEnter={e => e.currentTarget.style.transform = "translateX(5px)"}
+                        onMouseLeave={e => e.currentTarget.style.transform = ""}
+                      >
+                        <div style={{
+                          flexShrink: 0, width: 50, background: "#03082e",
+                          borderRadius: 8, padding: "0.35rem 0.4rem", textAlign: "center",
+                        }}>
+                          <div style={{ fontFamily: "'DM Sans'", fontSize: 8, color: "#C8102E", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
+                            {month}
+                          </div>
+                          <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.4rem", color: "white", lineHeight: 1 }}>
+                            {day}
+                          </div>
+                          <div style={{ fontFamily: "'DM Sans'", fontSize: 8, color: "rgba(255,255,255,0.4)", letterSpacing: 0.5 }}>
+                            {year}
+                          </div>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.95rem", color: "#03082e" }}>
+                            {ev.eventName || "Event"}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "right", flexShrink: 0 }}>
+                          <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.8rem", color: "#C8102E", letterSpacing: 1, lineHeight: 1 }}>
+                            +{ev.points}
+                          </div>
+                          <div style={{ fontFamily: "'DM Sans'", fontSize: 10, color: "#aaa", letterSpacing: 1 }}>points</div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           )}

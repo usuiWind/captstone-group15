@@ -20,11 +20,13 @@ export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization') ?? ''
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
 
-  // Constant-time comparison prevents timing attacks
   const secretBuf = Buffer.from(secret)
-  const tokenBuf = Buffer.alloc(secretBuf.length)
-  Buffer.from(token).copy(tokenBuf)
-  if (token.length === 0 || !crypto.timingSafeEqual(secretBuf, tokenBuf)) {
+  const tokenBuf  = Buffer.from(token)
+  if (
+    tokenBuf.length === 0 ||
+    tokenBuf.length !== secretBuf.length ||
+    !crypto.timingSafeEqual(secretBuf, tokenBuf)
+  ) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
   }
 
