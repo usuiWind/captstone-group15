@@ -157,7 +157,7 @@ export default function Navbar({ active = "", alwaysSolid = false }) {
 
                   {/* Dropdown panel */}
                   <div style={{
-                    position: "absolute", top: "calc(100% + 10px)", left: "50%",
+                    position: "absolute", top: "calc(100% + 0px)", left: "50%",
                     background: "white",
                     borderRadius: 8,
                     boxShadow: "0 8px 32px rgba(0,0,0,0.14)",
