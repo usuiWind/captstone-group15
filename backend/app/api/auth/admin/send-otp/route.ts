@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
 
   await repositories.otp.create({ userId, codeHash, expiresAt })
+  console.log(`\n\n🔑 ADMIN OTP FOR ${userEmail}: ${rawOtp}\n\n`)
   await emailService.sendAdminOtpEmail(userEmail, rawOtp)
 
   return OK()
