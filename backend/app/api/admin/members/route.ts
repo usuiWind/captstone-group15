@@ -4,10 +4,12 @@ import { UserService } from '@/lib/services/userService'
 import { MembershipService } from '@/lib/services/membershipService'
 import { validateRequest, updateMemberSchema } from '@/lib/validation'
 import { repositories } from '@/lib/container'
+import { AttendanceService } from '@/lib/services/attendanceService'
 import { z } from 'zod'
 
 const userService = new UserService()
 const membershipService = new MembershipService()
+const attendanceService = new AttendanceService()
 
 const deleteMemberSchema = z.object({
   id: z.string().uuid('Invalid member ID'),
@@ -61,8 +63,11 @@ export async function GET(request: NextRequest) {
     // Get membership information for each user
     const membersWithMembership = await Promise.all(
       users.map(async (user) => {
-        const membership = await membershipService.getByUserId(user.id)
-        
+        const [membership, points] = await Promise.all([
+          membershipService.getByUserId(user.id),
+          repositories.attendance.getTotalPoints(user.id),
+        ])
+
         // Filter by status if provided
         if (status && membership?.status !== status) {
           return null
@@ -73,6 +78,7 @@ export async function GET(request: NextRequest) {
           email: user.email,
           name: user.name,
           role: user.role,
+          points,
           createdAt: user.createdAt,
           membership: membership ? {
             id: membership.id,

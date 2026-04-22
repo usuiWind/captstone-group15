@@ -9,7 +9,7 @@ export const maxDuration = 30
 const attendanceService = new AttendanceService()
 
 const deleteAttendanceSchema = z.object({
-  id: z.string().uuid('Invalid attendance ID'),
+  id: z.string().regex(/^\d+$/, 'Invalid attendance ID'),
 })
 
 async function requireAdmin() {

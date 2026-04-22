@@ -3,6 +3,7 @@ const nextConfig = {
   experimental: {
     instrumentationHook: true,
   },
+  serverExternalPackages: ['bcryptjs'],
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = { ...config.resolve.fallback, crypto: false }

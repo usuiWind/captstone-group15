@@ -43,7 +43,7 @@ export const sponsorSchema = z.object({
 
 // Admin attendance update validation schema
 export const updateAttendanceSchema = z.object({
-  id: z.string().uuid('Invalid attendance ID'),
+  id: z.string().regex(/^\d+$/, 'Invalid attendance ID'),
   points: z.number().int('Points must be an integer').min(0).max(100).optional(),
   eventName: z.string().max(200, 'Event name too long').optional(),
   date: z.string().datetime('Invalid date format').optional(),

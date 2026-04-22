@@ -5,12 +5,12 @@ import { repositories } from '@/lib/container'
 import { validateRequest, sendOtpSchema } from '@/lib/validation'
 import { emailService } from '@/lib/email'
 import { createSecureResponse, createSecureErrorResponse } from '@/lib/security'
-import { authRateLimitAsync, getClientIdentifier } from '@/lib/rateLimit'
+import { otpRateLimitAsync, getClientIdentifier } from '@/lib/rateLimit'
 
 export async function POST(request: NextRequest) {
   try {
     const clientId = getClientIdentifier(request)
-    const rateLimitResult = await authRateLimitAsync(clientId)
+    const rateLimitResult = await otpRateLimitAsync(clientId)
     if (!rateLimitResult.allowed) {
       return createSecureErrorResponse('Too many requests. Please try again later.', 429)
     }
