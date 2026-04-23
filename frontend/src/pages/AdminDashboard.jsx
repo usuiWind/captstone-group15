@@ -198,6 +198,8 @@ function MembersTab({ members, loading, onRefresh }) {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
   const [createSuccess, setCreateSuccess] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ name: "", role: "MEMBER" });
 
   const filtered = members.filter(m =>
     !filter ||
@@ -245,6 +247,26 @@ function MembersTab({ members, loading, onRefresh }) {
       setCreateError(err.message || "Failed to create member.");
     } finally {
       setCreating(false);
+    }
+  }
+
+  function startEdit(m) {
+    setEditingId(m.id);
+    setEditForm({ name: m.name || "", role: m.role || "MEMBER" });
+    setActionError("");
+  }
+
+  async function handleEditSave(id) {
+    setWorking(id + "_edit");
+    setActionError("");
+    try {
+      await updateMember({ id, name: editForm.name, role: editForm.role });
+      setEditingId(null);
+      onRefresh();
+    } catch (e) {
+      setActionError(e.message || "Failed to update member.");
+    } finally {
+      setWorking(null);
     }
   }
 
@@ -365,14 +387,36 @@ function MembersTab({ members, loading, onRefresh }) {
                 const days = daysLeft(m.membership?.currentPeriodEnd);
                 const expiring = days !== null && days <= 14 && m.membership?.status === "ACTIVE";
                 const isActive = ["ACTIVE", "PAST_DUE"].includes(m.membership?.status);
+                const isEditing = editingId === m.id;
                 return (
                   <tr key={m.id}
                     onMouseEnter={e => e.currentTarget.style.background = "#fafaf9"}
                     onMouseLeave={e => e.currentTarget.style.background = ""}
                   >
                     <td style={tdStyle}>
-                      <div style={{ fontWeight: 600 }}>{m.name || "—"}</div>
-                      <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>{m.role === "ADMIN" ? "Admin" : "Member"}</div>
+                      {isEditing ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                          <input
+                            value={editForm.name}
+                            onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                            placeholder="Full name"
+                            style={{ padding: "0.3rem 0.5rem", borderRadius: 4, border: "1.5px solid #C8102E", fontFamily: "'DM Sans', sans-serif", fontSize: 13, outline: "none", width: 140 }}
+                          />
+                          <select
+                            value={editForm.role}
+                            onChange={e => setEditForm(f => ({ ...f, role: e.target.value }))}
+                            style={{ padding: "0.3rem 0.5rem", borderRadius: 4, border: "1.5px solid rgba(0,0,0,0.15)", fontFamily: "'DM Sans', sans-serif", fontSize: 12, background: "white" }}
+                          >
+                            <option value="MEMBER">Member</option>
+                            <option value="ADMIN">Admin</option>
+                          </select>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ fontWeight: 600 }}>{m.name || "—"}</div>
+                          <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>{m.role === "ADMIN" ? "Admin" : "Member"}</div>
+                        </>
+                      )}
                     </td>
                     <td style={{ ...tdStyle, color: "#555" }}>{m.email}</td>
                     <td style={tdStyle}><Badge status={m.membership?.status ?? "NONE"} /></td>
@@ -384,13 +428,23 @@ function MembersTab({ members, loading, onRefresh }) {
                         : "—"}
                     </td>
                     <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                      <div style={{ display: "flex", gap: "0.4rem" }}>
-                        {isActive && (
+                      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                        {isEditing ? (
+                          <>
+                            <button disabled={working === m.id + "_edit"} onClick={() => handleEditSave(m.id)} style={{ ...btnBase, background: "#16a34a", color: "white" }}>
+                              {working === m.id + "_edit" ? "…" : "Save"}
+                            </button>
+                            <button onClick={() => setEditingId(null)} style={{ ...btnBase, background: "rgba(0,0,0,0.06)", color: "#555" }}>✕</button>
+                          </>
+                        ) : (
+                          <button disabled={!!working} onClick={() => startEdit(m)} style={{ ...btnBase, background: "rgba(0,0,0,0.06)", color: "#555" }}>Edit</button>
+                        )}
+                        {!isEditing && isActive && (
                           <button disabled={!!working} onClick={() => handleRevoke(m)} style={{ ...btnBase, background: "rgba(249,115,22,0.1)", color: "#ea580c" }}>
                             {working === m.id + "_revoke" ? "…" : "Revoke"}
                           </button>
                         )}
-                        {confirmDelete === m.id ? (
+                        {!isEditing && (confirmDelete === m.id ? (
                           <>
                             <button disabled={!!working} onClick={() => handleDelete(m.id)} style={{ ...btnBase, background: "#dc2626", color: "white" }}>
                               {working === m.id + "_delete" ? "…" : "Confirm"}
@@ -399,7 +453,7 @@ function MembersTab({ members, loading, onRefresh }) {
                           </>
                         ) : (
                           <button disabled={!!working} onClick={() => setConfirmDelete(m.id)} style={{ ...btnBase, background: "rgba(239,68,68,0.08)", color: "#dc2626" }}>Delete</button>
-                        )}
+                        ))}
                       </div>
                     </td>
                   </tr>
