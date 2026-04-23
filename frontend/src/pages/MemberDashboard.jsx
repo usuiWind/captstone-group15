@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import { getMembership } from "../api/services/membershipService";
 import { getAttendance } from "../api/services/attendanceService";
+import { getUpcomingEvents } from "../api/services/eventsService";
 import { useAuth } from "../context/AuthContext";
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
@@ -189,36 +190,37 @@ function buildFallbackMember(email, sessionUser) {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function MemberDashboard() {
-  const [ready,         setReady]         = useState(false);
-  const [member,        setMember]        = useState(null);
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState(false);
-  const [activeTab,     setActiveTab]     = useState("overview");
-  const [attendance,    setAttendance]    = useState([]);
-  const [backendPoints, setBackendPoints] = useState(null);
+  const [ready,            setReady]            = useState(false);
+  const [member,           setMember]           = useState(null);
+  const [loading,          setLoading]          = useState(true);
+  const [error,            setError]            = useState(false);
+  const [activeTab,        setActiveTab]        = useState("overview");
+  const [attendance,       setAttendance]       = useState([]);
+  const [backendPoints,    setBackendPoints]    = useState(null);
   const [stripeMembership, setStripeMembership] = useState(null);
+  const [upcomingEvents,   setUpcomingEvents]   = useState([]);
 
   const { user } = useAuth();
 
-  // ── Fetch Stripe membership + real attendance records ──
+  // ── Fetch backend data: membership, attendance, events, announcements ──
   useEffect(() => {
     async function loadBackendData() {
-      try {
-        const [membershipResult, attendanceResult] = await Promise.allSettled([
-          getMembership(),
-          getAttendance(),
-        ]);
-        if (membershipResult.status === "fulfilled" && membershipResult.value) {
-          setStripeMembership(membershipResult.value);
+      const [membershipResult, attendanceResult, eventsResult] = await Promise.allSettled([
+        getMembership(),
+        getAttendance(),
+        getUpcomingEvents(),
+      ]);
+      if (membershipResult.status === "fulfilled" && membershipResult.value) {
+        setStripeMembership(membershipResult.value);
+      }
+      if (attendanceResult.status === "fulfilled" && attendanceResult.value?.records) {
+        setAttendance(attendanceResult.value.records);
+        if (typeof attendanceResult.value.totalPoints === "number") {
+          setBackendPoints(attendanceResult.value.totalPoints);
         }
-        if (attendanceResult.status === "fulfilled" && attendanceResult.value?.records) {
-          setAttendance(attendanceResult.value.records);
-          if (typeof attendanceResult.value.totalPoints === "number") {
-            setBackendPoints(attendanceResult.value.totalPoints);
-          }
-        }
-      } catch {
-        // backend data is supplemental; Apps Script profile still loads
+      }
+      if (eventsResult.status === "fulfilled" && Array.isArray(eventsResult.value)) {
+        setUpcomingEvents(eventsResult.value);
       }
     }
     loadBackendData();
@@ -580,36 +582,45 @@ export default function MemberDashboard() {
                     Upcoming Events
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
-                    {UPCOMING_EVENTS.map((ev, i) => (
-                      <div key={i} style={{
-                        display: "flex", alignItems: "center", gap: "1rem",
-                        padding: "0.9rem 1rem", borderRadius: 8,
-                        background: "#f8f7f5", border: "1px solid rgba(0,0,0,0.06)",
-                      }}>
-                        <div style={{
-                          flexShrink: 0, background: "#C8102E", borderRadius: 6,
-                          padding: "0.3rem 0.55rem", textAlign: "center",
+                    {upcomingEvents.length === 0 ? (
+                      <p style={{ fontFamily: "'DM Sans'", fontSize: 13, color: "#bbb", textAlign: "center", padding: "0.5rem 0" }}>
+                        No upcoming events scheduled.
+                      </p>
+                    ) : upcomingEvents.slice(0, 4).map((ev) => {
+                      const d = new Date(ev.eventDate);
+                      const month = d.toLocaleDateString("en-US", { month: "short" });
+                      const day = String(d.getUTCDate());
+                      return (
+                        <div key={ev.id} style={{
+                          display: "flex", alignItems: "center", gap: "1rem",
+                          padding: "0.9rem 1rem", borderRadius: 8,
+                          background: "#f8f7f5", border: "1px solid rgba(0,0,0,0.06)",
                         }}>
-                          <div style={{ fontFamily: "'DM Sans'", fontSize: 8, color: "rgba(255,255,255,0.7)", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
-                            {ev.date.split(" ")[0]}
+                          <div style={{
+                            flexShrink: 0, background: "#C8102E", borderRadius: 6,
+                            padding: "0.3rem 0.55rem", textAlign: "center",
+                          }}>
+                            <div style={{ fontFamily: "'DM Sans'", fontSize: 8, color: "rgba(255,255,255,0.7)", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
+                              {month}
+                            </div>
+                            <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.2rem", color: "white", lineHeight: 1 }}>
+                              {day}
+                            </div>
                           </div>
-                          <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.2rem", color: "white", lineHeight: 1 }}>
-                            {ev.date.split(" ")[1]}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.88rem", color: "#03082e" }}>{ev.title}</div>
+                            {ev.description && <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa", marginTop: 1 }}>{ev.description}</div>}
+                          </div>
+                          <div style={{
+                            fontFamily: "'DM Sans'", fontSize: 11, fontWeight: 700,
+                            color: "#1a7a4a", background: "rgba(26,122,74,0.1)",
+                            padding: "0.2rem 0.6rem", borderRadius: 12, flexShrink: 0,
+                          }}>
+                            +{ev.pointsValue} pts
                           </div>
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.88rem", color: "#03082e" }}>{ev.name}</div>
-                          <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa", marginTop: 1 }}>{ev.time}</div>
-                        </div>
-                        <div style={{
-                          fontFamily: "'DM Sans'", fontSize: 11, fontWeight: 700,
-                          color: "#1a7a4a", background: "rgba(26,122,74,0.1)",
-                          padding: "0.2rem 0.6rem", borderRadius: 12, flexShrink: 0,
-                        }}>
-                          +{ev.points} pts
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <a href="/contact" style={{

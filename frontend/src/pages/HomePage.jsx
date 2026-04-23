@@ -407,7 +407,7 @@ function CalendarSection() {
 
   useEffect(() => {
     let cancelled = false;
-    getJson('/api/events?all=true')
+    getJson('/api/events')
       .then(res => {
         if (cancelled || !res?.data?.length) return;
         setEvents(res.data.map(e => ({
