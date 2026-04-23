@@ -110,7 +110,8 @@ function OverviewTab({ members, events, loading, onTabChange }) {
   const memberInitials = (m) => (m.name ?? "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
   const memberStatus  = (m) => (m.membership?.status ?? "UNKNOWN").toLowerCase();
   const activeCount   = members.filter(m => memberStatus(m) === "active").length;
-  const upcomingEvents = events.filter(e => new Date(e.eventDate) >= new Date());
+  const todayStr = new Date().toISOString().split("T")[0];
+  const upcomingEvents = events.filter(e => new Date(e.eventDate).toISOString().split("T")[0] >= todayStr);
 
   return (
     <div>
@@ -193,10 +194,12 @@ function MembersTab({ members, loading, onRefresh }) {
   const [working, setWorking] = useState(null);
   const [actionError, setActionError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
-  const [createForm, setCreateForm] = useState({ email: "", name: "", password: "" });
+  const [createForm, setCreateForm] = useState({ email: "", name: "", password: "", role: "MEMBER", membershipStatus: "", planName: "", startDate: "", endDate: "" });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
   const [createSuccess, setCreateSuccess] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ name: "", role: "MEMBER" });
 
   const filtered = members.filter(m =>
     !filter ||
@@ -237,13 +240,33 @@ function MembersTab({ members, loading, onRefresh }) {
     try {
       await createMember(createForm);
       setCreateSuccess("Member created successfully.");
-      setCreateForm({ email: "", name: "", password: "" });
+      setCreateForm({ email: "", name: "", password: "", role: "MEMBER", membershipStatus: "", planName: "", startDate: "", endDate: "" });
       setShowCreate(false);
       onRefresh();
     } catch (err) {
       setCreateError(err.message || "Failed to create member.");
     } finally {
       setCreating(false);
+    }
+  }
+
+  function startEdit(m) {
+    setEditingId(m.id);
+    setEditForm({ name: m.name || "", role: m.role || "MEMBER" });
+    setActionError("");
+  }
+
+  async function handleEditSave(id) {
+    setWorking(id + "_edit");
+    setActionError("");
+    try {
+      await updateMember({ id, name: editForm.name, role: editForm.role });
+      setEditingId(null);
+      onRefresh();
+    } catch (e) {
+      setActionError(e.message || "Failed to update member.");
+    } finally {
+      setWorking(null);
     }
   }
 
@@ -262,22 +285,60 @@ function MembersTab({ members, loading, onRefresh }) {
         </button>
         {createSuccess && <span style={{ marginLeft: "1rem", fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#16a34a" }}>{createSuccess}</span>}
         {showCreate && (
-          <form onSubmit={handleCreate} style={{ marginTop: "1rem", background: "white", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 10, padding: "1.25rem", display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: "0.75rem", alignItems: "end" }}>
-            <div>
-              <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#555", marginBottom: "0.3rem" }}>Email *</label>
-              <input type="email" required value={createForm.email} onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))} placeholder="member@email.com" style={inputStyle} />
+          <form onSubmit={handleCreate} style={{ marginTop: "1rem", background: "white", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 10, padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            {/* Row 1: identity */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0.75rem" }}>
+              <div>
+                <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#555", marginBottom: "0.3rem" }}>Email *</label>
+                <input type="email" required value={createForm.email} onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))} placeholder="member@email.com" style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#555", marginBottom: "0.3rem" }}>Name</label>
+                <input value={createForm.name} onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#555", marginBottom: "0.3rem" }}>Password</label>
+                <input type="password" value={createForm.password} onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))} placeholder="Optional" style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#555", marginBottom: "0.3rem" }}>Role</label>
+                <select value={createForm.role} onChange={e => setCreateForm(f => ({ ...f, role: e.target.value }))} style={{ ...inputStyle, background: "white" }}>
+                  <option value="MEMBER">Member</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#555", marginBottom: "0.3rem" }}>Name</label>
-              <input value={createForm.name} onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" style={inputStyle} />
+            {/* Row 2: membership (optional) */}
+            <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)", paddingTop: "0.75rem" }}>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#aaa", marginBottom: "0.5rem" }}>Membership (optional)</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0.75rem" }}>
+                <div>
+                  <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#555", marginBottom: "0.3rem" }}>Status</label>
+                  <select value={createForm.membershipStatus} onChange={e => setCreateForm(f => ({ ...f, membershipStatus: e.target.value }))} style={{ ...inputStyle, background: "white" }}>
+                    <option value="">— None —</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="CANCELLED">Cancelled</option>
+                    <option value="EXPIRED">Expired</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#555", marginBottom: "0.3rem" }}>Plan Name</label>
+                  <input value={createForm.planName} onChange={e => setCreateForm(f => ({ ...f, planName: e.target.value }))} placeholder="e.g. Annual Membership" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#555", marginBottom: "0.3rem" }}>Start Date</label>
+                  <input type="date" value={createForm.startDate} onChange={e => setCreateForm(f => ({ ...f, startDate: e.target.value }))} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#555", marginBottom: "0.3rem" }}>End Date</label>
+                  <input type="date" value={createForm.endDate} onChange={e => setCreateForm(f => ({ ...f, endDate: e.target.value }))} style={inputStyle} />
+                </div>
+              </div>
             </div>
-            <div>
-              <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#555", marginBottom: "0.3rem" }}>Password</label>
-              <input type="password" value={createForm.password} onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))} placeholder="Optional" style={inputStyle} />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-              <button type="submit" disabled={creating} style={{ ...btnBase, background: creating ? "#ccc" : "#03082e", color: "white", padding: "0.65rem 1.2rem", fontSize: 11 }}>
-                {creating ? "Creating…" : "Create"}
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <button type="submit" disabled={creating} style={{ ...btnBase, background: creating ? "#ccc" : "#03082e", color: "white", padding: "0.65rem 1.4rem", fontSize: 11 }}>
+                {creating ? "Creating…" : "Create Member"}
               </button>
               {createError && <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#dc2626" }}>{createError}</span>}
             </div>
@@ -326,14 +387,36 @@ function MembersTab({ members, loading, onRefresh }) {
                 const days = daysLeft(m.membership?.currentPeriodEnd);
                 const expiring = days !== null && days <= 14 && m.membership?.status === "ACTIVE";
                 const isActive = ["ACTIVE", "PAST_DUE"].includes(m.membership?.status);
+                const isEditing = editingId === m.id;
                 return (
                   <tr key={m.id}
                     onMouseEnter={e => e.currentTarget.style.background = "#fafaf9"}
                     onMouseLeave={e => e.currentTarget.style.background = ""}
                   >
                     <td style={tdStyle}>
-                      <div style={{ fontWeight: 600 }}>{m.name || "—"}</div>
-                      <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>{m.role === "ADMIN" ? "Admin" : "Member"}</div>
+                      {isEditing ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                          <input
+                            value={editForm.name}
+                            onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                            placeholder="Full name"
+                            style={{ padding: "0.3rem 0.5rem", borderRadius: 4, border: "1.5px solid #C8102E", fontFamily: "'DM Sans', sans-serif", fontSize: 13, outline: "none", width: 140 }}
+                          />
+                          <select
+                            value={editForm.role}
+                            onChange={e => setEditForm(f => ({ ...f, role: e.target.value }))}
+                            style={{ padding: "0.3rem 0.5rem", borderRadius: 4, border: "1.5px solid rgba(0,0,0,0.15)", fontFamily: "'DM Sans', sans-serif", fontSize: 12, background: "white" }}
+                          >
+                            <option value="MEMBER">Member</option>
+                            <option value="ADMIN">Admin</option>
+                          </select>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ fontWeight: 600 }}>{m.name || "—"}</div>
+                          <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>{m.role === "ADMIN" ? "Admin" : "Member"}</div>
+                        </>
+                      )}
                     </td>
                     <td style={{ ...tdStyle, color: "#555" }}>{m.email}</td>
                     <td style={tdStyle}><Badge status={m.membership?.status ?? "NONE"} /></td>
@@ -345,13 +428,23 @@ function MembersTab({ members, loading, onRefresh }) {
                         : "—"}
                     </td>
                     <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                      <div style={{ display: "flex", gap: "0.4rem" }}>
-                        {isActive && (
+                      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                        {isEditing ? (
+                          <>
+                            <button disabled={working === m.id + "_edit"} onClick={() => handleEditSave(m.id)} style={{ ...btnBase, background: "#16a34a", color: "white" }}>
+                              {working === m.id + "_edit" ? "…" : "Save"}
+                            </button>
+                            <button onClick={() => setEditingId(null)} style={{ ...btnBase, background: "rgba(0,0,0,0.06)", color: "#555" }}>✕</button>
+                          </>
+                        ) : (
+                          <button disabled={!!working} onClick={() => startEdit(m)} style={{ ...btnBase, background: "rgba(0,0,0,0.06)", color: "#555" }}>Edit</button>
+                        )}
+                        {!isEditing && isActive && (
                           <button disabled={!!working} onClick={() => handleRevoke(m)} style={{ ...btnBase, background: "rgba(249,115,22,0.1)", color: "#ea580c" }}>
                             {working === m.id + "_revoke" ? "…" : "Revoke"}
                           </button>
                         )}
-                        {confirmDelete === m.id ? (
+                        {!isEditing && (confirmDelete === m.id ? (
                           <>
                             <button disabled={!!working} onClick={() => handleDelete(m.id)} style={{ ...btnBase, background: "#dc2626", color: "white" }}>
                               {working === m.id + "_delete" ? "…" : "Confirm"}
@@ -360,7 +453,7 @@ function MembersTab({ members, loading, onRefresh }) {
                           </>
                         ) : (
                           <button disabled={!!working} onClick={() => setConfirmDelete(m.id)} style={{ ...btnBase, background: "rgba(239,68,68,0.08)", color: "#dc2626" }}>Delete</button>
-                        )}
+                        ))}
                       </div>
                     </td>
                   </tr>
@@ -375,7 +468,7 @@ function MembersTab({ members, loading, onRefresh }) {
 }
 
 // ─── ATTENDANCE TAB ────────────────────────────────────────────────────────────
-function AttendanceTab({ members }) {
+function AttendanceTab({ members, events }) {
   const [form, setForm] = useState({ userId: "", eventName: "", date: new Date().toISOString().split("T")[0], points: 1 });
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState("");
@@ -458,7 +551,18 @@ function AttendanceTab({ members }) {
           </div>
           <div>
             <label style={labelStyle}>Event / Meeting Name</label>
-            <input value={form.eventName} onChange={e => setForm(f => ({ ...f, eventName: e.target.value }))} placeholder="e.g. Weekly Meeting — Week 5" style={inputStyle} />
+            <input
+              list="event-options"
+              value={form.eventName}
+              onChange={e => setForm(f => ({ ...f, eventName: e.target.value }))}
+              placeholder="Select or type event name…"
+              style={inputStyle}
+            />
+            <datalist id="event-options">
+              {(events ?? []).map(ev => (
+                <option key={ev.id} value={ev.title} />
+              ))}
+            </datalist>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
             <div>
@@ -621,8 +725,9 @@ function EventsTab() {
   const tdStyle = { fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#03082e", padding: "0.85rem 1rem", borderBottom: "1px solid rgba(0,0,0,0.05)", verticalAlign: "middle" };
   const btnBase = { border: "none", borderRadius: 4, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", padding: "0.3rem 0.7rem" };
 
-  const upcoming = events.filter(e => new Date(e.eventDate) >= new Date());
-  const past     = events.filter(e => new Date(e.eventDate) <  new Date());
+  const todayStr = new Date().toISOString().split("T")[0];
+  const upcoming = events.filter(e => new Date(e.eventDate).toISOString().split("T")[0] >= todayStr);
+  const past     = events.filter(e => new Date(e.eventDate).toISOString().split("T")[0] <  todayStr);
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: "2.5rem", alignItems: "start" }}>
@@ -729,23 +834,11 @@ function EventsTab() {
                 </thead>
                 <tbody>
                   {past.slice(0, 10).map(ev => (
-                    <tr key={ev.id} onMouseEnter={e => e.currentTarget.style.background = "#fafaf9"} onMouseLeave={e => e.currentTarget.style.background = ""}>
+                    <tr key={ev.id}>
                       <td style={{ ...tdStyle, whiteSpace: "nowrap", color: "#aaa", fontSize: 12 }}>{fmt(ev.eventDate)}</td>
                       <td style={{ ...tdStyle, color: "#aaa" }}>{ev.title}</td>
                       <td style={{ ...tdStyle, color: "#aaa" }}>{ev.pointsValue}</td>
-                      <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                        <div style={{ display: "flex", gap: "0.4rem" }}>
-                          <button onClick={() => startEdit(ev)} style={{ ...btnBase, background: "rgba(0,0,0,0.06)", color: "#555" }}>Edit</button>
-                          {confirmDelete === ev.id ? (
-                            <>
-                              <button disabled={!!deletingId} onClick={() => handleDelete(ev.id)} style={{ ...btnBase, background: "#dc2626", color: "white" }}>{deletingId === ev.id ? "…" : "Confirm"}</button>
-                              <button onClick={() => setConfirmDelete(null)} style={{ ...btnBase, background: "rgba(0,0,0,0.06)", color: "#555" }}>✕</button>
-                            </>
-                          ) : (
-                            <button onClick={() => setConfirmDelete(ev.id)} style={{ ...btnBase, background: "rgba(239,68,68,0.08)", color: "#dc2626" }}>Del</button>
-                          )}
-                        </div>
-                      </td>
+                      <td style={tdStyle} />
                     </tr>
                   ))}
                 </tbody>
@@ -897,7 +990,7 @@ export default function AdminDashboard() {
           )}
           {tab === "overview"   && <OverviewTab members={members} events={events} loading={loading} onTabChange={setTab} />}
           {tab === "members"    && <MembersTab members={members} loading={loading} onRefresh={loadData} />}
-          {tab === "attendance" && <AttendanceTab members={members} />}
+          {tab === "attendance" && <AttendanceTab members={members} events={events} />}
           {tab === "events"     && <EventsTab />}
           {tab === "analytics"  && <AnalyticsTab members={members} />}
         </div>

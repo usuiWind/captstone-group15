@@ -78,11 +78,21 @@ export function createRateLimitAsync(
 // Lazy-init: limiters are created on first use to avoid cold-start cost and
 // to allow env vars to be read after module load (e.g. in tests).
 let _authLimiter: Limiter | null = null
+let _otpLimiter:  Limiter | null = null
 let _generalLimiter: Limiter | null = null
 
+const isDev = process.env.NODE_ENV === 'development'
+
 function getAuthLimiter(): Limiter {
-  if (!_authLimiter) _authLimiter = buildLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5 })
+  if (!_authLimiter) _authLimiter = buildLimiter({ windowMs: 15 * 60 * 1000, maxRequests: isDev ? 50 : 5 })
   return _authLimiter
+}
+
+function getOtpLimiter(): Limiter {
+  // OTP sends get a separate bucket so login + OTP don't share the same quota.
+  // Dev: 50 per 15 min so testing doesn't lock out the admin account.
+  if (!_otpLimiter) _otpLimiter = buildLimiter({ windowMs: 15 * 60 * 1000, maxRequests: isDev ? 50 : 10 })
+  return _otpLimiter
 }
 
 function getGeneralLimiter(): Limiter {
@@ -91,13 +101,24 @@ function getGeneralLimiter(): Limiter {
 }
 
 /**
- * Rate-limit an auth endpoint (5 req / 15 min per identifier).
+ * Rate-limit an auth endpoint (5 req / 15 min per identifier; 50 in dev).
  * @returns `{ allowed, resetTime }` — resetTime is epoch ms when the window resets
  */
 export async function authRateLimitAsync(
   identifier: string
 ): Promise<{ allowed: boolean; resetTime?: number }> {
   const { success, reset } = await getAuthLimiter().limit(identifier)
+  return { allowed: success, resetTime: reset }
+}
+
+/**
+ * Rate-limit the OTP send endpoint (10 req / 15 min per identifier; 50 in dev).
+ * Kept separate from authRateLimitAsync so login and OTP attempts don't share quota.
+ */
+export async function otpRateLimitAsync(
+  identifier: string
+): Promise<{ allowed: boolean; resetTime?: number }> {
+  const { success, reset } = await getOtpLimiter().limit(identifier)
   return { allowed: success, resetTime: reset }
 }
 

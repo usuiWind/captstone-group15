@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { repositories } from '@/lib/container'
 import { emailService } from '@/lib/email'
-import { authRateLimitAsync, getClientIdentifier } from '@/lib/rateLimit'
+import { otpRateLimitAsync, getClientIdentifier } from '@/lib/rateLimit'
 
 // Constant-time response to prevent user enumeration:
 // We always return the same shape regardless of whether the admin exists.
@@ -14,9 +14,8 @@ const RATE_LIMITED = (resetTime: number) =>
   )
 
 export async function POST(req: NextRequest) {
-  // Rate-limit by IP — same window as auth login (5 per 15 min)
   const identifier = getClientIdentifier(req)
-  const { allowed, resetTime } = await authRateLimitAsync(identifier)
+  const { allowed, resetTime } = await otpRateLimitAsync(identifier)
   if (!allowed) return RATE_LIMITED(resetTime ?? Date.now() + 60_000)
 
   let email: string
@@ -72,7 +71,6 @@ export async function POST(req: NextRequest) {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
 
   await repositories.otp.create({ userId, codeHash, expiresAt })
-  console.log(`\n\n🔑 ADMIN OTP FOR ${userEmail}: ${rawOtp}\n\n`)
   await emailService.sendAdminOtpEmail(userEmail, rawOtp)
 
   return OK()

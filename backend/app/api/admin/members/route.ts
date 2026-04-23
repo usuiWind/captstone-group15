@@ -4,10 +4,12 @@ import { UserService } from '@/lib/services/userService'
 import { MembershipService } from '@/lib/services/membershipService'
 import { validateRequest, updateMemberSchema } from '@/lib/validation'
 import { repositories } from '@/lib/container'
+import { AttendanceService } from '@/lib/services/attendanceService'
 import { z } from 'zod'
 
 const userService = new UserService()
 const membershipService = new MembershipService()
+const attendanceService = new AttendanceService()
 
 const deleteMemberSchema = z.object({
   id: z.string().uuid('Invalid member ID'),
@@ -20,21 +22,52 @@ export async function POST(request: NextRequest) {
     if (session.user.role !== 'ADMIN') return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 })
 
     let email: string, name: string | undefined, password: string | undefined
+    let role: 'MEMBER' | 'ADMIN' = 'MEMBER'
+    let membershipStatus: string | undefined, planName: string | undefined
+    let startDate: string | undefined, endDate: string | undefined
+
     try {
       const body = await request.json()
-      email = String(body.email ?? '').trim().toLowerCase()
-      name  = body.name     ? String(body.name).trim()     : undefined
-      password = body.password ? String(body.password)     : undefined
+      email    = String(body.email ?? '').trim().toLowerCase()
+      name     = body.name     ? String(body.name).trim() : undefined
+      password = body.password ? String(body.password)    : undefined
+      if (body.role === 'ADMIN') role = 'ADMIN'
+      membershipStatus = body.membershipStatus || undefined
+      planName         = body.planName         || undefined
+      startDate        = body.startDate        || undefined
+      endDate          = body.endDate          || undefined
     } catch {
       return NextResponse.json({ success: false, error: 'Invalid request body' }, { status: 400 })
     }
 
     if (!email) return NextResponse.json({ success: false, error: 'Email is required' }, { status: 400 })
 
-    const user = await repositories.user.create({ email, name, role: 'MEMBER' })
+    const user = await repositories.user.create({ email, name, role })
     if (password) await repositories.user.setPassword(user.id, password)
 
-    return NextResponse.json({ success: true, data: { id: user.id, email: user.email, name: user.name, role: user.role } }, { status: 201 })
+    let membership = null
+    if (membershipStatus && planName && startDate && endDate) {
+      const validStatuses = ['PENDING', 'ACTIVE', 'PAST_DUE', 'CANCELLED', 'EXPIRED']
+      const status = validStatuses.includes(membershipStatus) ? membershipStatus as any : 'PENDING'
+      membership = await repositories.membership.create({
+        userId: user.id,
+        status,
+        planName,
+        stripeCustomerId: '',
+        stripeSubscriptionId: '',
+        currentPeriodStart: new Date(startDate),
+        currentPeriodEnd: new Date(endDate),
+        cancelAtPeriodEnd: false,
+      })
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: user.id, email: user.email, name: user.name, role: user.role,
+        membership: membership ? { id: membership.id, status: membership.status, planName: membership.planName } : null,
+      }
+    }, { status: 201 })
   } catch (error: any) {
     console.error('Create member error:', error)
     return NextResponse.json({ success: false, error: error.message || 'Failed to create member' }, { status: 500 })
@@ -61,8 +94,11 @@ export async function GET(request: NextRequest) {
     // Get membership information for each user
     const membersWithMembership = await Promise.all(
       users.map(async (user) => {
-        const membership = await membershipService.getByUserId(user.id)
-        
+        const [membership, points] = await Promise.all([
+          membershipService.getByUserId(user.id),
+          repositories.attendance.getTotalPoints(user.id),
+        ])
+
         // Filter by status if provided
         if (status && membership?.status !== status) {
           return null
@@ -73,6 +109,7 @@ export async function GET(request: NextRequest) {
           email: user.email,
           name: user.name,
           role: user.role,
+          points,
           createdAt: user.createdAt,
           membership: membership ? {
             id: membership.id,

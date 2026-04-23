@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { getJson } from "../../backend";
 
@@ -171,37 +172,6 @@ const STATIC_SPONSORS = [
   { name: "Sponsor",             logo: "https://static.wixstatic.com/media/24c087_23fa2f79893a4aeca376f779abed7bb0~mv2.jpg/v1/fill/w_207,h_157,al_c,q_80,usm_0.66_1.00_0.01,enc_avif,quality_auto/og-share.jpg" },
   { name: "FITP Partner",        logo: "https://static.wixstatic.com/media/dc9d24_60670651d0a441a3b6dfa5c10edaacc6~mv2.png/v1/fill/w_190,h_144,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Untitled%20design.png" },
 ];
-
-const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
-
-function mapSponsorsFromApi(data) {
-  if (!data || typeof data !== "object") return null;
-
-  const items = [];
-
-  TIER_ORDER.forEach((tier) => {
-    const list = data[tier];
-    if (Array.isArray(list)) {
-      list
-        .slice()
-        .sort((a, b) => {
-          const aOrder = typeof a.order === "number" ? a.order : 0;
-          const bOrder = typeof b.order === "number" ? b.order : 0;
-          return aOrder - bOrder;
-        })
-        .forEach((s) => {
-          if (s && s.logoUrl) {
-            items.push({
-              name: s.name,
-              logo: s.logoUrl,
-            });
-          }
-        });
-    }
-  });
-
-  return items.length > 0 ? items : null;
-}
 
 // Placeholder events — swap with real CMS/API data later
 const EVENTS = [
@@ -434,6 +404,23 @@ function CalendarSection() {
   const [viewYear,  setViewYear]  = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selected,  setSelected]  = useState(null);
+  const [events,    setEvents]    = useState(EVENTS);
+
+  useEffect(() => {
+    let cancelled = false;
+    getJson('/api/events')
+      .then(res => {
+        if (cancelled || !res?.data?.length) return;
+        setEvents(res.data.map(e => ({
+          date:  new Date(e.eventDate),
+          title: e.title,
+          time:  e.description || '',
+          points: e.pointsValue,
+        })));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const prevMonth = () => {
     setSelected(null);
@@ -467,9 +454,9 @@ function CalendarSection() {
 
   const isToday   = d => sameDay(d, today);
   const isSel     = d => sameDay(d, selected);
-  const dayEvents = d => EVENTS.filter(e => sameDay(e.date, d));
+  const dayEvents = d => events.filter(e => sameDay(e.date, d));
 
-  const monthEvents = EVENTS.filter(e =>
+  const monthEvents = events.filter(e =>
     e.date.getMonth() === viewMonth && e.date.getFullYear() === viewYear
   );
 
@@ -655,6 +642,77 @@ function NavBtn({ onClick, children }) {
   );
 }
 
+// ─── ANNOUNCEMENTS ────────────────────────────────────────────────────────────
+function Announcements() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    getJson('/api/events?all=true')
+      .then(res => {
+        if (cancelled) return;
+        const evs = (res?.data ?? []).filter(e => e.description);
+        setItems(evs);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!loading && items.length === 0) return null;
+
+  return (
+    <section style={{ background: "#f8f7f5", padding: "5rem 2rem", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+        <div style={{ marginBottom: "2.5rem" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.6rem" }}>
+            <span style={{ width: 28, height: 2.5, background: "#C8102E", display: "block", borderRadius: 2 }} />
+            <span className="section-tag">Updates</span>
+          </div>
+          <h2 className="section-title">Announcements</h2>
+        </div>
+
+        {loading ? (
+          <p style={{ fontFamily: "'DM Sans', sans-serif", color: "#aaa", fontSize: "0.9rem" }}>Loading…</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            {items.map((ev, i) => (
+              <div key={ev.id ?? i} style={{
+                background: "white", borderRadius: 10,
+                border: "1px solid rgba(0,0,0,0.07)",
+                borderLeft: "4px solid #C8102E",
+                padding: "1.2rem 1.5rem",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <span style={{
+                      fontFamily: "'DM Sans', sans-serif", fontSize: 10, fontWeight: 700,
+                      letterSpacing: 1.5, textTransform: "uppercase",
+                      color: "#C8102E", background: "rgba(200,16,46,0.08)",
+                      padding: "0.2rem 0.7rem", borderRadius: 10,
+                    }}>Event</span>
+                    <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.1rem", color: "#03082e", letterSpacing: 1 }}>
+                      {ev.title}
+                    </span>
+                  </div>
+                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#bbb" }}>
+                    {new Date(ev.eventDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                </div>
+                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.91rem", color: "#555", lineHeight: 1.75, fontWeight: 300, margin: 0 }}>
+                  {ev.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 // ─── MEMBERSHIP CTA ───────────────────────────────────────────────────────────
 function MembershipCTA() {
   return (
@@ -704,30 +762,6 @@ function MembershipCTA() {
 
 // ─── SPONSORS ─────────────────────────────────────────────────────────────────
 function Sponsors() {
-  const [sponsors, setSponsors] = useState(STATIC_SPONSORS);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    getJson("/api/sponsors")
-      .then((res) => {
-        if (cancelled) return;
-        if (res && res.success && res.data) {
-          const mapped = mapSponsorsFromApi(res.data);
-          if (mapped) {
-            setSponsors(mapped);
-          }
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load sponsors from backend", err);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   return (
     <section id="sponsorships" style={{ background: "#f8f7f5", padding: "5rem 2rem" }}>
       <div style={{ maxWidth: "100%", margin: "0 auto" }}>
@@ -736,7 +770,7 @@ function Sponsors() {
           <h2 className="section-title">Sponsors</h2>
         </div>
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", flexWrap: "wrap", gap: "3.5rem" }}>
-          {sponsors.map((s, i) => (
+          {STATIC_SPONSORS.map((s, i) => (
             <div key={i} className="sponsor-logo" style={{ width: 155, height: 80, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <img src={s.logo} alt={s.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
             </div>
@@ -771,13 +805,13 @@ function Footer() {
                   {col.heading}
                 </div>
                 {col.links.map(l => (
-                  <a key={l.label} href={l.href} style={{
+                  <Link key={l.label} to={l.href} style={{
                     display: "block", color: "rgba(255,255,255,0.47)", textDecoration: "none",
                     fontFamily: "'DM Sans', sans-serif", fontSize: 13.5, marginBottom: "0.55rem", transition: "color 0.2s",
                   }}
                     onMouseEnter={e => e.target.style.color = "white"}
                     onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.47)"}
-                  >{l.label}</a>
+                  >{l.label}</Link>
                 ))}
               </div>
             ))}
@@ -809,6 +843,7 @@ export default function HomePage() {
       <WhatWeDo />
       <EventsGallery />
       <CalendarSection />
+      <Announcements />
       <MembershipCTA />
       <Sponsors />
       <Footer />

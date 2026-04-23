@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import { getMembership } from "../api/services/membershipService";
 import { getAttendance } from "../api/services/attendanceService";
+import { getUpcomingEvents } from "../api/services/eventsService";
 import { useAuth } from "../context/AuthContext";
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
@@ -189,32 +190,37 @@ function buildFallbackMember(email, sessionUser) {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function MemberDashboard() {
-  const [ready,      setReady]      = useState(false);
-  const [member,     setMember]     = useState(null);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState(false);
-  const [activeTab,  setActiveTab]  = useState("overview");
-  const [attendance, setAttendance] = useState([]);
+  const [ready,            setReady]            = useState(false);
+  const [member,           setMember]           = useState(null);
+  const [loading,          setLoading]          = useState(true);
+  const [error,            setError]            = useState(false);
+  const [activeTab,        setActiveTab]        = useState("overview");
+  const [attendance,       setAttendance]       = useState([]);
+  const [backendPoints,    setBackendPoints]    = useState(null);
   const [stripeMembership, setStripeMembership] = useState(null);
+  const [upcomingEvents,   setUpcomingEvents]   = useState([]);
 
   const { user } = useAuth();
 
-  // ── Fetch Stripe membership + real attendance records ──
+  // ── Fetch backend data: membership, attendance, events, announcements ──
   useEffect(() => {
     async function loadBackendData() {
-      try {
-        const [membershipResult, attendanceResult] = await Promise.allSettled([
-          getMembership(),
-          getAttendance(),
-        ]);
-        if (membershipResult.status === "fulfilled" && membershipResult.value) {
-          setStripeMembership(membershipResult.value);
+      const [membershipResult, attendanceResult, eventsResult] = await Promise.allSettled([
+        getMembership(),
+        getAttendance(),
+        getUpcomingEvents(),
+      ]);
+      if (membershipResult.status === "fulfilled" && membershipResult.value) {
+        setStripeMembership(membershipResult.value);
+      }
+      if (attendanceResult.status === "fulfilled" && attendanceResult.value?.records) {
+        setAttendance(attendanceResult.value.records);
+        if (typeof attendanceResult.value.totalPoints === "number") {
+          setBackendPoints(attendanceResult.value.totalPoints);
         }
-        if (attendanceResult.status === "fulfilled" && attendanceResult.value?.records) {
-          setAttendance(attendanceResult.value.records);
-        }
-      } catch {
-        // backend data is supplemental; Apps Script profile still loads
+      }
+      if (eventsResult.status === "fulfilled" && Array.isArray(eventsResult.value)) {
+        setUpcomingEvents(eventsResult.value);
       }
     }
     loadBackendData();
@@ -325,7 +331,9 @@ export default function MemberDashboard() {
     </>
   );
 
-  const progressPct = Math.min(100, Math.round((member.totalPoints / member.pointsGoal) * 100));
+  const totalPoints = backendPoints !== null ? backendPoints : member.totalPoints;
+  const eventsAttended = attendance.length > 0 ? attendance.length : member.eventsAttended;
+  const progressPct = Math.min(100, Math.round((totalPoints / member.pointsGoal) * 100));
 
   return (
     <>
@@ -385,7 +393,7 @@ export default function MemberDashboard() {
                     Total Points
                   </div>
                   <div style={{ fontFamily: "'Bebas Neue'", fontSize: "2rem", color: "#C8102E", letterSpacing: 1, lineHeight: 1 }}>
-                    {member.totalPoints}
+                    {totalPoints}
                   </div>
                   <div style={{ fontFamily: "'DM Sans'", fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: "0.2rem" }}>
                     Goal: {member.pointsGoal}
@@ -454,14 +462,14 @@ export default function MemberDashboard() {
               }}>
                 <StatCard
                   label="Total Points"
-                  value={member.totalPoints}
+                  value={totalPoints}
                   sub={`Goal: ${member.pointsGoal} pts`}
                   accent="#C8102E"
                   icon={<svg viewBox="0 0 24 24" fill="none" width={20} height={20}><path d="M12 2l3 7h7l-6 4 2 7-6-4-6 4 2-7-6-4h7z" stroke="#C8102E" strokeWidth="1.8" strokeLinejoin="round"/></svg>}
                 />
                 <StatCard
                   label="Events Attended"
-                  value={member.eventsAttended}
+                  value={eventsAttended}
                   sub="This semester"
                   accent="#003087"
                   icon={<svg viewBox="0 0 24 24" fill="none" width={20} height={20}><rect x="3" y="4" width="18" height="18" rx="3" stroke="#003087" strokeWidth="1.8"/><path d="M3 9h18M8 2v4M16 2v4" stroke="#003087" strokeWidth="1.8" strokeLinecap="round"/></svg>}
@@ -476,7 +484,7 @@ export default function MemberDashboard() {
                 <StatCard
                   label="Progress"
                   value={`${progressPct}%`}
-                  sub={`${member.pointsGoal - member.totalPoints} pts to goal`}
+                  sub={`${member.pointsGoal - totalPoints} pts to goal`}
                   accent="#7b3fa0"
                   icon={<svg viewBox="0 0 24 24" fill="none" width={20} height={20}><circle cx="12" cy="12" r="9" stroke="#7b3fa0" strokeWidth="1.8"/><path d="M12 7v5l3 3" stroke="#7b3fa0" strokeWidth="1.8" strokeLinecap="round"/></svg>}
                 />
@@ -495,7 +503,7 @@ export default function MemberDashboard() {
                       Points Progress
                     </div>
                     <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.6rem", color: "#03082e", letterSpacing: 1, marginTop: "0.1rem" }}>
-                      {member.totalPoints} / {member.pointsGoal} points
+                      {totalPoints} / {member.pointsGoal} points
                     </div>
                   </div>
                   <div style={{
@@ -529,7 +537,10 @@ export default function MemberDashboard() {
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
                     {(attendance.length > 0 ? attendance : MOCK_EVENTS).slice(0, 4).map((ev, i) => {
-                      const parts = ev.date ? { month: ev.date.split(" ")[0], day: ev.date.split(" ")[1]?.replace(",","") } : parseDateParts(ev.createdAt || ev.date);
+                      const rawDate = ev.date || ev.createdAt;
+                      const parts = (typeof rawDate === 'string' && /^[A-Za-z]/.test(rawDate))
+                        ? { month: rawDate.split(" ")[0], day: rawDate.split(" ")[1]?.replace(",","") }
+                        : parseDateParts(rawDate);
                       const name  = ev.name || ev.eventName || "Event";
                       const pts   = ev.points ?? 0;
                       return (
@@ -571,36 +582,45 @@ export default function MemberDashboard() {
                     Upcoming Events
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
-                    {UPCOMING_EVENTS.map((ev, i) => (
-                      <div key={i} style={{
-                        display: "flex", alignItems: "center", gap: "1rem",
-                        padding: "0.9rem 1rem", borderRadius: 8,
-                        background: "#f8f7f5", border: "1px solid rgba(0,0,0,0.06)",
-                      }}>
-                        <div style={{
-                          flexShrink: 0, background: "#C8102E", borderRadius: 6,
-                          padding: "0.3rem 0.55rem", textAlign: "center",
+                    {upcomingEvents.length === 0 ? (
+                      <p style={{ fontFamily: "'DM Sans'", fontSize: 13, color: "#bbb", textAlign: "center", padding: "0.5rem 0" }}>
+                        No upcoming events scheduled.
+                      </p>
+                    ) : upcomingEvents.slice(0, 4).map((ev) => {
+                      const d = new Date(ev.eventDate);
+                      const month = d.toLocaleDateString("en-US", { month: "short" });
+                      const day = String(d.getUTCDate());
+                      return (
+                        <div key={ev.id} style={{
+                          display: "flex", alignItems: "center", gap: "1rem",
+                          padding: "0.9rem 1rem", borderRadius: 8,
+                          background: "#f8f7f5", border: "1px solid rgba(0,0,0,0.06)",
                         }}>
-                          <div style={{ fontFamily: "'DM Sans'", fontSize: 8, color: "rgba(255,255,255,0.7)", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
-                            {ev.date.split(" ")[0]}
+                          <div style={{
+                            flexShrink: 0, background: "#C8102E", borderRadius: 6,
+                            padding: "0.3rem 0.55rem", textAlign: "center",
+                          }}>
+                            <div style={{ fontFamily: "'DM Sans'", fontSize: 8, color: "rgba(255,255,255,0.7)", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
+                              {month}
+                            </div>
+                            <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.2rem", color: "white", lineHeight: 1 }}>
+                              {day}
+                            </div>
                           </div>
-                          <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.2rem", color: "white", lineHeight: 1 }}>
-                            {ev.date.split(" ")[1]}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.88rem", color: "#03082e" }}>{ev.title}</div>
+                            {ev.description && <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa", marginTop: 1 }}>{ev.description}</div>}
+                          </div>
+                          <div style={{
+                            fontFamily: "'DM Sans'", fontSize: 11, fontWeight: 700,
+                            color: "#1a7a4a", background: "rgba(26,122,74,0.1)",
+                            padding: "0.2rem 0.6rem", borderRadius: 12, flexShrink: 0,
+                          }}>
+                            +{ev.pointsValue} pts
                           </div>
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "0.88rem", color: "#03082e" }}>{ev.name}</div>
-                          <div style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#aaa", marginTop: 1 }}>{ev.time}</div>
-                        </div>
-                        <div style={{
-                          fontFamily: "'DM Sans'", fontSize: 11, fontWeight: 700,
-                          color: "#1a7a4a", background: "rgba(26,122,74,0.1)",
-                          padding: "0.2rem 0.6rem", borderRadius: 12, flexShrink: 0,
-                        }}>
-                          +{ev.points} pts
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <a href="/contact" style={{
@@ -636,7 +656,7 @@ export default function MemberDashboard() {
                   background: "#03082e", borderRadius: 8, padding: "0.6rem 1.2rem",
                   fontFamily: "'Bebas Neue'", fontSize: "1.3rem", color: "white", letterSpacing: 1,
                 }}>
-                  {member.totalPoints} Total Points
+                  {totalPoints} Total Points
                 </div>
               </div>
 

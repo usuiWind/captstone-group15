@@ -55,14 +55,15 @@ export const userRepositorySupabase: IUserRepository = {
     }
 
     const userId = authData.user.id
+    // Use upsert in case a DB trigger already created the profile row.
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .insert({
+      .upsert({
         id: userId,
         full_name: data.name ?? '',
         email: data.email,
         role: data.role === 'ADMIN' ? 'admin' : 'member',
-      })
+      }, { onConflict: 'id' })
       .select()
       .single()
 
