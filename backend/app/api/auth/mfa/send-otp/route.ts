@@ -41,11 +41,12 @@ export async function POST(request: NextRequest) {
 
     // Generate a cryptographically random 6-digit code
     const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0')
+    const codeHash = await bcrypt.hash(code, 8)
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
 
     // Replace any existing OTP for this user before creating a new one
     await repositories.otp.deleteExpiredForUser(userId)
-    await repositories.otp.create({ userId, codeHash: code, expiresAt })
+    await repositories.otp.create({ userId, codeHash, expiresAt })
 
     await emailService.sendOtpCode(email, code)
 
