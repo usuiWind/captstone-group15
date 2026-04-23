@@ -117,13 +117,13 @@ export default function Navbar({ active = "", alwaysSolid = false }) {
         }}>
 
           {/* Logo */}
-          <a href="/" style={{ textDecoration: "none" }}>
+          <Link to="/" style={{ textDecoration: "none" }}>
             <img
               src="https://static.wixstatic.com/media/8b5d4e_2037e3e1f5684f5a8941d1a13f747017~mv2.png/v1/fill/w_385,h_232,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/BlueRed.png"
               alt="FITP UH"
               style={{ height: 44, objectFit: "contain" }}
             />
-          </a>
+          </Link>
 
           {/* Desktop nav */}
           <div className="desktop-nav" style={{ display: "flex", alignItems: "center", gap: "2.2rem" }}>
@@ -136,8 +136,8 @@ export default function Navbar({ active = "", alwaysSolid = false }) {
                   onMouseEnter={() => setAboutOpen(true)}
                   onMouseLeave={() => setAboutOpen(false)}
                 >
-                  <a
-                    href={l.href}
+                  <Link
+                    to={l.href}
                     className={`nav-link${aboutActive ? " nav-active" : ""}`}
                     style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
                   >
@@ -153,7 +153,7 @@ export default function Navbar({ active = "", alwaysSolid = false }) {
                     >
                       <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                  </a>
+                  </Link>
 
                   {/* Dropdown panel */}
                   <div style={{
@@ -176,24 +176,24 @@ export default function Navbar({ active = "", alwaysSolid = false }) {
                     zIndex: 300,
                   }}>
                     {l.dropdown.map(d => (
-                      <a
+                      <Link
                         key={d.label}
-                        href={d.href}
+                        to={d.href}
                         className={`dropdown-item${active === d.label ? " dropdown-active" : ""}`}
                       >
                         {d.label}
-                      </a>
+                      </Link>
                     ))}
                   </div>
                 </div>
               ) : (
-                <a
+                <Link
                   key={l.label}
-                  href={l.href}
+                  to={l.href}
                   className={`nav-link${active === l.label ? " nav-active" : ""}`}
                 >
                   {l.label}
-                </a>
+                </Link>
               )
             ))}
 
@@ -257,27 +257,27 @@ export default function Navbar({ active = "", alwaysSolid = false }) {
           <div style={{ background: "rgba(3,8,46,0.98)", padding: "1rem 2rem 2rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
             {links.map(l => (
               <div key={l.label}>
-                <a
-                  href={l.href}
+                <Link
+                  to={l.href}
                   className="nav-link"
                   style={{ fontSize: 16, display: "block" }}
                   onClick={() => setMenuOpen(false)}
                 >
                   {l.label}
-                </a>
+                </Link>
                 {/* Sub-links indented under About */}
                 {l.dropdown && (
                   <div style={{ paddingLeft: "1.2rem", marginTop: "0.5rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
                     {l.dropdown.map(d => (
-                      <a
+                      <Link
                         key={d.label}
-                        href={d.href}
+                        to={d.href}
                         className="nav-link"
                         style={{ fontSize: 13, opacity: 0.7 }}
                         onClick={() => setMenuOpen(false)}
                       >
                         — {d.label}
-                      </a>
+                      </Link>
                     ))}
                   </div>
                 )}

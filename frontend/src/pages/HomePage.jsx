@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { getJson } from "../../backend";
 
@@ -804,13 +805,13 @@ function Footer() {
                   {col.heading}
                 </div>
                 {col.links.map(l => (
-                  <a key={l.label} href={l.href} style={{
+                  <Link key={l.label} to={l.href} style={{
                     display: "block", color: "rgba(255,255,255,0.47)", textDecoration: "none",
                     fontFamily: "'DM Sans', sans-serif", fontSize: 13.5, marginBottom: "0.55rem", transition: "color 0.2s",
                   }}
                     onMouseEnter={e => e.target.style.color = "white"}
                     onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.47)"}
-                  >{l.label}</a>
+                  >{l.label}</Link>
                 ))}
               </div>
             ))}
