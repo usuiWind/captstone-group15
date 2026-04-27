@@ -60,14 +60,77 @@ const GlobalStyles = () => (
       box-shadow: 0 24px 60px rgba(0,0,0,0.13);
     }
 
+    /* Plan modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(2,6,25,0.88);
+      display: flex; align-items: center; justify-content: center;
+      padding: 1.5rem;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .modal-box {
+      background: white; border-radius: 16px;
+      width: 100%; max-width: 740px; overflow: hidden;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .plan-card-modal {
+      border-radius: 10px; border: 2px solid rgba(0,0,0,0.08);
+      padding: 2rem 1.75rem; display: flex; flex-direction: column;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+      background: white; position: relative;
+    }
+    .plan-card-modal:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 20px 56px rgba(0,0,0,0.12);
+      border-color: #C8102E;
+    }
     @media (max-width: 768px) {
       .desktop-nav { display: none !important; }
       .hamburger-btn { display: flex !important; }
       .mem-cards { grid-template-columns: 1fr !important; }
+      .plans-modal-grid { grid-template-columns: 1fr !important; }
     }
   `}</style>
 );
 
+// ─── STRIPE LINKS — replace with real URLs once created ──────────────────────
+const STRIPE_LINKS = {
+  semester: "https://buy.stripe.com/test_28E3cn6f3goZ96obsY2sM00",
+  yearly:   "https://buy.stripe.com/test_eVqeV50UJ3CdaasaoU2sM01",
+};
+
+const PLANS = [
+  {
+    key: "semester", name: "Semester", price: "$25", period: "per semester",
+    accent: "#C8102E", tag: null,
+    validity: "Valid for one semester (Fall or Spring)",
+    features: [
+      "Access to all FITP events",
+      "Points tracking & member dashboard",
+      "Networking & professional development",
+      "Member-only conference access",
+      "Expires last day of current semester",
+    ],
+  },
+  {
+    key: "yearly", name: "Yearly", price: "$40", period: "per year",
+    accent: "#003087", tag: "Best Value",
+    validity: "Valid Fall through end of Spring",
+    features: [
+      "Everything in Semester, plus:",
+      "Full academic year coverage",
+      "Available in Fall semester only",
+      "Priority event registration",
+      "Expires last day of Spring semester",
+    ],
+  },
+];
 
 // ─── HERO — skyline banner photo ──────────────────────────────────────────────
 function Hero() {
@@ -141,9 +204,9 @@ const STEPS = [
     ),
     label: "Get Membership",
     sublabel: "Purchase your FITP membership",
-    href: "https://www.fitpuh.org/merchandise",
+    href: null,
     cta: "Purchase Membership",
-    external: true,
+    external: false,
   },
   {
     num: "02",
@@ -158,7 +221,8 @@ const STEPS = [
     ),
     label: "Complete Registration",
     sublabel: "Fill out the registration process",
-    href: "https://docs.google.com/forms/d/1Bq76dx5Xr6_WWXwl0oYG2IplY5_pX2mpsJxZuI-ijzg/viewform?edit_requested=true",
+    /* FITP Member Sign Up Google Form */
+    href: "https://docs.google.com/forms/d/e/1FAIpQLSe2n_gg1bQlEFlnSZop5q67FpqJqaNQAKOdczuI1hNNMrvAIQ/viewform?usp=dialog",
     cta: "Complete Registration Process",
     external: true,
   },
@@ -175,15 +239,15 @@ const STEPS = [
         <path d="M30 30h4v4h-4z" fill="rgba(200,16,46,0.2)" />
       </svg>
     ),
-    label: "Access Registration Form",
-    sublabel: "Complete your member profile",
-    href: "/member-register-form",
-    cta: "Access Registration Form",
+    label: "Access Your Dashboard",
+    sublabel: "Log in and track your points and membership",
+    href: "/login",
+    cta: "Go to Dashboard",
     external: false,
   },
 ];
 
-function BecomeAMember() {
+function BecomeAMember({ onPurchase }) {
   return (
     <section style={{ background: "white", padding: "5.5rem 2rem" }}>
       <div style={{ maxWidth: 1000, margin: "0 auto" }}>
@@ -267,43 +331,207 @@ function BecomeAMember() {
                 marginBottom: "1.75rem", flex: 1,
               }}>{s.sublabel}</p>
 
-              {/* CTA button */}
-              <a
-                href={s.href}
-                target={s.external ? "_blank" : "_self"}
-                rel={s.external ? "noopener noreferrer" : undefined}
-                style={{
-                  display: "block", textAlign: "center",
-                  padding: "0.78rem 1.2rem", borderRadius: 5,
-                  fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
-                  fontSize: 12, letterSpacing: 1.8, textTransform: "uppercase",
-                  textDecoration: "none", transition: "all 0.25s",
-                  background: s.accentColor === "#C8102E" ? "#C8102E" : "#03082e",
-                  color: "white",
-                  boxShadow: s.accentColor === "#C8102E"
-                    ? "0 6px 20px rgba(200,16,46,0.3)"
-                    : "0 6px 20px rgba(3,8,46,0.25)",
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.transform = "translateY(-2px)";
-                  e.currentTarget.style.boxShadow = s.accentColor === "#C8102E"
-                    ? "0 12px 32px rgba(200,16,46,0.42)"
-                    : "0 12px 32px rgba(3,8,46,0.38)";
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.transform = "";
-                  e.currentTarget.style.boxShadow = s.accentColor === "#C8102E"
-                    ? "0 6px 20px rgba(200,16,46,0.3)"
-                    : "0 6px 20px rgba(3,8,46,0.25)";
-                }}
-              >
-                {s.cta}
-              </a>
+              {/* CTA — Step 01 opens modal, others are links */}
+              {i === 0 ? (
+                <button
+                  onClick={onPurchase}
+                  style={{
+                    display: "block", width: "100%", textAlign: "center",
+                    padding: "0.78rem 1.2rem", borderRadius: 5,
+                    fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
+                    fontSize: 12, letterSpacing: 1.8, textTransform: "uppercase",
+                    border: "none", cursor: "pointer", transition: "all 0.25s",
+                    background: "#C8102E", color: "white",
+                    boxShadow: "0 6px 20px rgba(200,16,46,0.3)",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = "translateY(-2px)";
+                    e.currentTarget.style.boxShadow = "0 12px 32px rgba(200,16,46,0.42)";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = "";
+                    e.currentTarget.style.boxShadow = "0 6px 20px rgba(200,16,46,0.3)";
+                  }}
+                >
+                  {s.cta}
+                </button>
+              ) : (
+                <a
+                  href={s.href}
+                  target={s.external ? "_blank" : "_self"}
+                  rel={s.external ? "noopener noreferrer" : undefined}
+                  style={{
+                    display: "block", textAlign: "center",
+                    padding: "0.78rem 1.2rem", borderRadius: 5,
+                    fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
+                    fontSize: 12, letterSpacing: 1.8, textTransform: "uppercase",
+                    textDecoration: "none", transition: "all 0.25s",
+                    background: s.accentColor === "#C8102E" ? "#C8102E" : "#03082e",
+                    color: "white",
+                    boxShadow: s.accentColor === "#C8102E"
+                      ? "0 6px 20px rgba(200,16,46,0.3)"
+                      : "0 6px 20px rgba(3,8,46,0.25)",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = "translateY(-2px)";
+                    e.currentTarget.style.boxShadow = s.accentColor === "#C8102E"
+                      ? "0 12px 32px rgba(200,16,46,0.42)"
+                      : "0 12px 32px rgba(3,8,46,0.38)";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = "";
+                    e.currentTarget.style.boxShadow = s.accentColor === "#C8102E"
+                      ? "0 6px 20px rgba(200,16,46,0.3)"
+                      : "0 6px 20px rgba(3,8,46,0.25)";
+                  }}
+                >
+                  {s.cta}
+                </a>
+              )}
             </div>
           ))}
         </div>
       </div>
     </section>
+  );
+}
+
+// ─── PLAN SELECTION MODAL ─────────────────────────────────────────────────────
+function PlanModal({ onClose }) {
+  useEffect(() => {
+    const fn = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", fn);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", fn);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{
+          background: "linear-gradient(135deg, #03082e, #1b040a)",
+          padding: "1.5rem 2rem",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <div>
+            <div style={{
+              fontFamily: "'DM Sans'", fontSize: 10, color: "#C8102E",
+              letterSpacing: 3.5, textTransform: "uppercase", fontWeight: 700,
+              marginBottom: "0.25rem",
+            }}>
+              Choose Your Plan
+            </div>
+            <div style={{ fontFamily: "'Bebas Neue'", fontSize: "1.7rem", color: "white", letterSpacing: 2 }}>
+              FITP UH Membership
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background: "rgba(255,255,255,0.08)",
+            border: "1.5px solid rgba(255,255,255,0.15)",
+            borderRadius: "50%", width: 36, height: 36,
+            cursor: "pointer", color: "white", fontSize: 20,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "background 0.2s",
+          }}
+            onMouseEnter={e => e.currentTarget.style.background = "#C8102E"}
+            onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
+          >×</button>
+        </div>
+
+        {/* Plan cards */}
+        <div
+          className="plans-modal-grid"
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", padding: "1.75rem" }}
+        >
+          {PLANS.map(plan => (
+            <div key={plan.key} className="plan-card-modal">
+              {plan.tag && (
+                <div style={{
+                  position: "absolute", top: 12, right: 12,
+                  background: plan.accent, color: "white",
+                  fontFamily: "'DM Sans'", fontSize: 9, fontWeight: 700,
+                  letterSpacing: 2, textTransform: "uppercase",
+                  padding: "0.2rem 0.6rem", borderRadius: 20,
+                }}>{plan.tag}</div>
+              )}
+
+              <div style={{
+                fontFamily: "'DM Sans'", fontSize: 10, fontWeight: 700,
+                letterSpacing: 3, textTransform: "uppercase",
+                color: plan.accent, marginBottom: "0.4rem",
+              }}>
+                {plan.name}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "baseline", gap: "0.3rem", marginBottom: "0.3rem" }}>
+                <span style={{ fontFamily: "'Bebas Neue'", fontSize: "2.8rem", color: "#03082e", letterSpacing: 1, lineHeight: 1 }}>
+                  {plan.price}
+                </span>
+                <span style={{ fontFamily: "'DM Sans'", fontSize: "0.8rem", color: "#aaa", fontWeight: 300 }}>
+                  {plan.period}
+                </span>
+              </div>
+
+              <div style={{
+                fontFamily: "'DM Sans'", fontSize: "0.78rem",
+                color: plan.accent, fontWeight: 500,
+                marginBottom: "1.2rem", paddingBottom: "1.2rem",
+                borderBottom: "1px solid rgba(0,0,0,0.07)",
+              }}>
+                {plan.validity}
+              </div>
+
+              <ul style={{ listStyle: "none", padding: 0, marginBottom: "1.5rem", flex: 1 }}>
+                {plan.features.map((f, i) => (
+                  <li key={i} style={{
+                    display: "flex", gap: "0.55rem", alignItems: "flex-start",
+                    marginBottom: "0.55rem",
+                    fontFamily: "'DM Sans'", fontSize: "0.85rem", color: "#555",
+                  }}>
+                    <svg viewBox="0 0 16 16" fill="none" width={13} height={13} style={{ marginTop: 2, flexShrink: 0 }}>
+                      <circle cx="8" cy="8" r="7" fill={plan.accent} opacity="0.15" />
+                      <path d="M5 8l2 2 4-4" stroke={plan.accent} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              <a
+                href={STRIPE_LINKS[plan.key]}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "block", textAlign: "center",
+                  padding: "0.82rem", borderRadius: 5,
+                  fontFamily: "'DM Sans'", fontWeight: 700,
+                  fontSize: 12, letterSpacing: 1.8, textTransform: "uppercase",
+                  textDecoration: "none", transition: "all 0.25s",
+                  background: plan.accent, color: "white",
+                  boxShadow: `0 6px 20px ${plan.accent}44`,
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"}
+                onMouseLeave={e => e.currentTarget.style.transform = ""}
+              >
+                Select {plan.name} Plan
+              </a>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer note */}
+        <div style={{ padding: "0 2rem 1.25rem", textAlign: "center" }}>
+          <p style={{ fontFamily: "'DM Sans'", fontSize: 11, color: "#bbb", lineHeight: 1.6 }}>
+            Payments processed securely via Stripe. Yearly plan available Fall semester only.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -364,13 +592,16 @@ function Footer() {
 
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
 export default function MembershipPage() {
+  const [showModal, setShowModal] = useState(false);
+
   return (
     <>
       <GlobalStyles />
       <Navbar />
       <Hero />
-      <BecomeAMember />
+      <BecomeAMember onPurchase={() => setShowModal(true)} />
       <Footer />
+      {showModal && <PlanModal onClose={() => setShowModal(false)} />}
     </>
   );
 }
